@@ -4,10 +4,20 @@ import { Send } from 'lucide-react';
 import { BRAND } from '@proxels/shared';
 import { Logo } from '@/components/brand/logo';
 import { PRIMARY_NAV } from './nav-items';
+import { usePublicConfig } from '@/hooks/use-public-config';
 
 export function Footer(): JSX.Element {
   const { t } = useTranslation();
   const year = new Date().getFullYear();
+  const { data: config } = usePublicConfig();
+
+  // Реквизиты ИП: предпочитаем актуальные из API (`/config/public` → ENV
+  // `OWNER_*`), фолбэк на i18n-перевод (для случая, когда API ещё не ответил).
+  const ipName = config?.owner.fio ? `ИП ${shortName(config.owner.fio)}` : t('footer.ip.name');
+  const ipOgrnip = config?.owner.ogrnip ? `ОГРНИП ${config.owner.ogrnip}` : t('footer.ip.ogrnip');
+  const ipInn = config?.owner.inn ? `ИНН ${config.owner.inn}` : t('footer.ip.inn');
+  const telegramUrl = config?.brand.telegramUrl ?? BRAND.telegramUrl;
+  const telegramHandle = config?.brand.telegramHandle ?? BRAND.telegramHandle;
 
   return (
     <footer className="mt-24 border-t border-border bg-background/40">
@@ -16,13 +26,13 @@ export function Footer(): JSX.Element {
           <Logo />
           <p className="max-w-xs text-sm text-muted-foreground">{t('brand.tagline')}</p>
           <a
-            href={BRAND.telegramUrl}
+            href={telegramUrl}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
             <Send className="h-4 w-4" />
-            {BRAND.telegramHandle}
+            {telegramHandle}
           </a>
         </div>
 
@@ -42,18 +52,18 @@ export function Footer(): JSX.Element {
 
         <FooterColumn title={t('footer.contactsTitle')}>
           <a
-            href={BRAND.telegramUrl}
+            href={telegramUrl}
             target="_blank"
             rel="noreferrer"
             className="block text-sm text-muted-foreground hover:text-foreground"
           >
-            {t('footer.telegram')}: {BRAND.telegramHandle}
+            {t('footer.telegram')}: {telegramHandle}
           </a>
           <div className="mt-3 space-y-0.5 text-xs text-muted-foreground/80">
             <div className="font-medium text-muted-foreground">{t('footer.ip.title')}</div>
-            <div>{t('footer.ip.name')}</div>
-            <div>{t('footer.ip.ogrnip')}</div>
-            <div>{t('footer.ip.inn')}</div>
+            <div>{ipName}</div>
+            <div>{ipOgrnip}</div>
+            <div>{ipInn}</div>
           </div>
         </FooterColumn>
       </div>
@@ -93,4 +103,12 @@ function FooterLink({ to, children }: { to: string; children: React.ReactNode })
       {children}
     </Link>
   );
+}
+
+/** «Коробейников Сергей Сергеевич» → «Коробейников С.С.» */
+function shortName(fio: string): string {
+  const parts = fio.trim().split(/\s+/);
+  if (parts.length < 2) return fio;
+  const [last, ...rest] = parts;
+  return `${last} ${rest.map((p) => p[0] + '.').join('')}`;
 }

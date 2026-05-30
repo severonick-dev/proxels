@@ -160,14 +160,52 @@ GitHub: https://github.com/severonick-dev/proxels
 
 ---
 
-## 🔜 Этап 9 — Юр.страницы + cookie-banner
+## ✅ Этап 9 — Юр.страницы + cookie-banner + публичный конфиг
 
-- `LegalDocService`: load by slug+version, public read.
-- Реальные тексты privacy/offer/cookies — заглушки в БД с пометкой «проверить у юриста».
-- Cookie-баннер (только необходимые / все), хранение выбора в localStorage.
-- Yandex.Metrika — подключается ТОЛЬКО после согласия на cookie.
-- Реквизиты ИП в футере подтягиваются из ENV (`OWNER_*`), не из i18n.
-- Markdown-рендер юр.документов через DOMPurify.
+**Backend:**
+
+- `LegalDocsService` + `GET /api/legal[/:slug]` (public read-only).
+  Возвращает последнюю опубликованную версию (`publishedAt != null`,
+  `orderBy publishedAt desc`).
+- `prisma/seed-legal.ts` — идемпотентный seed 3 документов (privacy/offer/cookie)
+  с markdown-контентом и пометкой «шаблон, проверяется у юриста».
+  Версия = `CONSENT_VERSIONS.*` из `@proxels/shared`.
+- `PublicConfigController` — `GET /api/config/public`: brand + реквизиты ИП
+  (из ENV), Yandex.Metrika ID, версии согласий. **Никаких секретов**
+  (ни ID нод, ни webhook-токенов).
+
+**Frontend:**
+
+- `<LegalDocPage />` (`apps/web/src/components/legal/`) рендерит markdown
+  через `react-markdown` + `remark-gfm` — **XSS-безопасно по дизайну**
+  (React-элементы, не innerHTML). Кастомные `components` дают tailwind-стили
+  без plugin'а typography.
+- 3 страницы `/legal/{privacy,offer,cookies}` теперь тянут контент из API.
+  Сверху — версия, дата публикации, disclaimer.
+- `lib/cookie-consent.ts` + `<CookieBanner />`: баннер появляется если
+  согласие ещё не дано. Сохраняет `{ necessary, analytics, decidedAt }` в
+  `localStorage:proxels:cookie-consent`. Закрытие крестиком =
+  «только необходимые». Animated через Framer Motion.
+- `<YandexMetrika />`: грузит метрику ТОЛЬКО при выполнении ВСЕХ трёх условий —
+  согласие на analytics + `analytics.yandexMetrikaId` не null +
+  `!import.meta.env.DEV`. Hit на каждый route change. Реагирует на
+  смену согласия без перезагрузки страницы (`proxels:consent-changed` event).
+  `webvisor: false` по приватности (§4a).
+- Footer тянет реквизиты ИП из `/api/config/public` (приоритет) с
+  фолбэком на i18n. Telegram-ссылка/handle тоже из конфига.
+- `OWNER_*` явно добавлены в `.env` (Windows-Node иногда читает .ts-defaults
+  с системной кодировкой — лучше держать в .env UTF-8).
+
+**i18n:** `cookieBanner.*`, `legal.{version,publishedAt,disclaimer}` — ru+en.
+
+**Smoke (6/6):**
+
+- `/api/legal` → 3 документа
+- `/api/legal/privacy` → 200 с корректным markdown (UTF-8)
+- `/api/legal/unknown` → 400
+- `/api/config/public` → brand+owner+contact+analytics+consentVersions
+- Web `/legal/privacy` → SPA 200
+- Vite proxy `/api/legal/privacy` → 200
 
 ## 🔜 Этап 10 — Своя система выдачи subscription-ссылок
 

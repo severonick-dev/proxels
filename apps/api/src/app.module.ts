@@ -21,6 +21,8 @@ import { YookassaModule } from './yookassa/yookassa.module.js';
 import { PlansModule } from './plans/plans.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { LegalModule } from './legal/legal.module.js';
+import { PublicConfigModule } from './public-config/public-config.module.js';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { PaymentsModule } from './payments/payments.module.js';
     PlansModule,
     SubscriptionsModule,
     PaymentsModule,
+    LegalModule,
+    PublicConfigModule,
     HealthModule,
   ],
   providers: [

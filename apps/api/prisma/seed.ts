@@ -1,13 +1,14 @@
 /* eslint-disable no-console */
 import { Locale, PrismaClient, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { seedLegalDocs } from './seed-legal.js';
 
 /**
  * Идемпотентный seed для dev/staging.
  *
  *  - Тарифы (Plan): 4 базовых периода (1/3/6/12 мес).
- *  - Админ: создаётся только если заданы SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD,
- *    либо обновляется существующий до role=admin + emailVerified=true.
+ *  - Юр.документы (LegalDoc): privacy / offer / cookie с версией CONSENT_VERSIONS.
+ *  - Админ: создаётся только если заданы SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD.
  *
  * На прод-серверах админа лучше создавать отдельной CLI-командой (Этап 12).
  */
@@ -101,6 +102,8 @@ async function seedAdmin(): Promise<void> {
 async function main(): Promise<void> {
   console.log('Seeding plans:');
   await seedPlans();
+  console.log('Seeding legal documents:');
+  await seedLegalDocs(prisma);
   console.log('Seeding admin (optional):');
   await seedAdmin();
 }

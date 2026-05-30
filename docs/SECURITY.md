@@ -130,6 +130,41 @@
       (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
       `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
+## Этап 9 — Юр.страницы + cookie-banner + Yandex.Metrika
+
+- [x] `LegalDocsService` + `GET /api/legal/:slug` + `GET /api/legal`
+      (последняя опубликованная версия по каждому slug). Распознаются slug:
+      `privacy`, `offer`, `cookie`. Неизвестный slug → 400.
+- [x] Seed (`prisma/seed-legal.ts`) идемпотентно публикует 3 документа
+      с версией из `@proxels/shared::CONSENT_VERSIONS`. Контент — markdown,
+      сразу с пометкой «документ — рабочий шаблон, перед запуском проверяется
+      у юриста».
+- [x] Frontend рендерит markdown через `react-markdown` + `remark-gfm`.
+      **XSS-безопасно по дизайну**: react-markdown строит React-элементы,
+      не использует `innerHTML`/`dangerouslySetInnerHTML`. Кастомные
+      `components` дают tailwind-стилизацию без plugin'а typography.
+- [x] `GET /api/config/public` — единая точка для бренда (имя/домен/Telegram),
+      реквизитов ИП (ENV `OWNER_*`), `CONTACT_EMAIL`/`CONTACT_TELEGRAM`,
+      `YANDEX_METRIKA_ID` и текущих версий согласий. **Никаких секретов**
+      (ни ID нод, ни webhook-токенов).
+- [x] Footer тянет реквизиты ИП из `/api/config/public` (приоритет) с
+      фолбэком на i18n. Telegram-ссылка тоже из конфига → можно сменить
+      ENV без редеплоя фронта.
+- [x] **Cookie-баннер** (`apps/web/src/components/cookie-banner.tsx`):
+      показывается только если согласие ещё не дано
+      (`localStorage:proxels:cookie-consent`). Выбор хранится как
+      `{ necessary, analytics, decidedAt }`. Закрытие крестиком =
+      «только необходимые» (отказ от аналитики).
+- [x] **Yandex.Metrika** (`apps/web/src/components/analytics/yandex-metrika.tsx`):
+      грузится ТОЛЬКО когда выполнены все три условия — пользователь
+      явно принял analytics-cookie, `analytics.yandexMetrikaId` пришёл
+      непустой из `/api/config/public`, и не `import.meta.env.DEV`.
+      Слушает `proxels:consent-changed` событие — если юзер сменил
+      выбор без перезагрузки страницы, реагирует. `webvisor: false`
+      по приватности (§4a — не пишем поведение пользователя на чужих страницах).
+      Hit на каждый route change через `useLocation` watcher.
+- [x] Backend `PublicConfigController` под `Throttle(120/60s)`.
+
 ## Этап 8 — ЛК
 
 - [x] Auth-стора Zustand хранит access-токен **только в памяти** (никакого

@@ -179,7 +179,18 @@
   "legal": {
     "privacy": "Privacy Policy",
     "offer": "Terms of Service",
-    "cookies": "Cookie Notice"
+    "cookies": "Cookie Notice",
+    "version": "Version: {{version}}",
+    "publishedAt": "published {{date}}",
+    "disclaimer": "This document is a working template. Will be reviewed by a lawyer before public launch."
+  },
+  "cookieBanner": {
+    "title": "Cookies & analytics",
+    "body": "We use technical cookies (language, theme, auth). With your consent — Yandex.Metrika analytics to understand which pages are useful.",
+    "learnMore": "Learn more",
+    "onlyNecessary": "Only necessary",
+    "acceptAll": "Accept all",
+    "close": "Close"
   },
   "themeToggle": {
     "label": "Toggle theme",
