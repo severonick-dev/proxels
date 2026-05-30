@@ -184,6 +184,26 @@
     "publishedAt": "published {{date}}",
     "disclaimer": "This document is a working template. Will be reviewed by a lawyer before public launch."
   },
+  "purchase": {
+    "title": "Subscribe to «{{plan}}»",
+    "subtitle_one": "{{count}}-day subscription. Activates automatically after payment.",
+    "subtitle_other": "{{count}}-day subscription. Activates automatically after payment.",
+    "total": "Total",
+    "consent": {
+      "prefix": "I accept the",
+      "connector": "and the"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "pay": "Pay"
+    },
+    "errors": {
+      "offerRequired": "Please accept the offer and privacy policy to continue"
+    },
+    "toast": {
+      "devSimulated": "DEV: payment simulated, subscription is now active"
+    }
+  },
   "cookieBanner": {
     "title": "Cookies & analytics",
     "body": "We use technical cookies (language, theme, auth). With your consent — Yandex.Metrika analytics to understand which pages are useful.",
@@ -274,7 +294,8 @@
         "title": "Pay for exactly the period you need",
         "subtitle": "All plans are unlimited traffic with failover between nodes. Longer term = cheaper month.",
         "cta": "All plans",
-        "perDay": "{{count}} d."
+        "perDay": "{{count}} d.",
+        "buy": "Buy"
       },
       "apps": {
         "eyebrow": "Supported apps",

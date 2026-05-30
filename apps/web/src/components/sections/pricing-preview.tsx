@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth-store';
+import { PurchaseDialog } from '@/components/lk/purchase-dialog';
 import { cn } from '@/lib/cn';
 import { SectionHeading } from './section-heading';
 
@@ -25,6 +27,7 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
   const { t } = useTranslation();
   const [plans, setPlans] = useState<ApiPlan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [buyingPlan, setBuyingPlan] = useState<ApiPlan | null>(null);
 
   useEffect(() => {
     const ctl = new AbortController();
@@ -69,6 +72,7 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
                 highlight={cheapest != null && p.priceRub === cheapest}
                 idx={idx}
                 t={t}
+                onBuy={() => setBuyingPlan(p)}
               />
             ))}
           </div>
@@ -82,6 +86,13 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
           </Link>
         </Button>
       </div>
+
+      <PurchaseDialog
+        plan={buyingPlan}
+        onOpenChange={(open) => {
+          if (!open) setBuyingPlan(null);
+        }}
+      />
     </section>
   );
 }
@@ -91,10 +102,13 @@ interface CardProps {
   highlight: boolean;
   idx: number;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  onBuy: () => void;
 }
 
-function PlanCard({ plan, highlight, idx, t }: CardProps): JSX.Element {
+function PlanCard({ plan, highlight, idx, t, onBuy }: CardProps): JSX.Element {
   const monthly = Math.round((plan.priceRub / plan.durationDays) * 30);
+  const isAuthed = useAuthStore((s) => s.status === 'auth');
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 16 }}
@@ -133,9 +147,18 @@ function PlanCard({ plan, highlight, idx, t }: CardProps): JSX.Element {
         </li>
       </ul>
 
-      <Button asChild className="mt-auto" variant={highlight ? 'gradient' : 'outline'}>
-        <Link to={`/auth/register?plan=${plan.id}`}>{t('nav.register')}</Link>
-      </Button>
+      {/* Кнопка с отбивкой от features-листа + mt-auto чтобы прижать к низу карточки. */}
+      <div className="mt-6 pt-2 flex-1 flex flex-col justify-end">
+        {isAuthed ? (
+          <Button onClick={onBuy} className="w-full" variant={highlight ? 'gradient' : 'outline'}>
+            {t('pages.home.pricingPreview.buy')}
+          </Button>
+        ) : (
+          <Button asChild className="w-full" variant={highlight ? 'gradient' : 'outline'}>
+            <Link to={`/auth/register?plan=${plan.id}`}>{t('nav.register')}</Link>
+          </Button>
+        )}
+      </div>
     </motion.article>
   );
 }
