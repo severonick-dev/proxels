@@ -185,11 +185,15 @@ export class AuthController {
 
   private cookieOptions(maxAgeMs: number): CookieOptions {
     const isProd = this.env.isProduction;
+    const domain = this.env.get('COOKIE_DOMAIN');
     return {
       httpOnly: true,
       secure: isProd || this.env.get('COOKIE_SECURE'),
       sameSite: isProd ? 'strict' : 'lax',
-      domain: this.env.get('COOKIE_DOMAIN'),
+      // ВАЖНО: Chrome молча отбрасывает cookie с `Domain=localhost`
+      // (RFC 6265 4.1.2.3 — Domain должен содержать точку). Если домен — localhost
+      // или пустой, не выставляем атрибут вообще: браузер сам ассоциирует cookie с хостом ответа.
+      ...(domain && domain !== 'localhost' && !domain.startsWith('localhost:') ? { domain } : {}),
       // Refresh-cookie отдаётся только на /api/auth/* — снижает поверхность атаки.
       path: REFRESH_PATH,
       maxAge: maxAgeMs > 0 ? maxAgeMs : 0,

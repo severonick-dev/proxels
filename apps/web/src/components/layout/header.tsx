@@ -7,13 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/brand/logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { UserMenu } from '@/components/auth/user-menu';
 import { MobileNav } from './mobile-nav';
 import { PRIMARY_NAV } from './nav-items';
+import { useAuthStore } from '@/stores/auth-store';
 import { cn } from '@/lib/cn';
 
 export function Header(): JSX.Element {
   const { t } = useTranslation();
   const [scrolled, setScrolled] = useState(false);
+  const authStatus = useAuthStore((s) => s.status);
+  const isAuthed = authStatus === 'auth';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -71,15 +75,21 @@ export function Header(): JSX.Element {
           <ThemeToggle />
 
           <div className="ml-1 hidden items-center gap-2 md:flex">
-            <Button asChild variant="ghost" size="sm">
-              <NavLink to="/auth/login">{t('nav.login')}</NavLink>
-            </Button>
-            <Button asChild variant="gradient" size="sm">
-              <NavLink to="/auth/register">{t('nav.register')}</NavLink>
-            </Button>
+            {isAuthed ? (
+              <UserMenu />
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <NavLink to="/auth/login">{t('nav.login')}</NavLink>
+                </Button>
+                <Button asChild variant="gradient" size="sm">
+                  <NavLink to="/auth/register">{t('nav.register')}</NavLink>
+                </Button>
+              </>
+            )}
           </div>
 
-          <MobileNav items={PRIMARY_NAV} />
+          <MobileNav items={PRIMARY_NAV} isAuthed={isAuthed} />
         </div>
       </div>
     </header>

@@ -298,6 +298,12 @@ Node            id, name, host, country, xrayApiAddr, publicKey, shortId,
 XrayClient      id, subscriptionId, nodeId, uuid, addedAt   // юзер на конкретной ноде
 AuditLog        id, actorId, action, meta, ip, createdAt    // только админские действия
 LegalDoc        id, slug(privacy/offer/cookie), title, contentMd, version, publishedAt
+RefreshToken    id, userId, familyId, tokenHash(sha256), jti, replacedById,
+                revokedAt, revokedReason, expiresAt, ip, userAgent, createdAt
+PromoCode       id, code(unique), discountKind(percent|fixedRub), discountValue,
+                validFrom, validUntil, maxUses, usedCount, perUserLimit,
+                appliesToPlanIds[](пусто = ко всем), isActive, createdAt, updatedAt
+PromoRedemption id, promoCodeId, userId, paymentId(unique), discountRub, createdAt
 ```
 
 > Никаких таблиц вида `VisitLog`, `TrafficLog(per-destination)` и т.п. — это нарушает
@@ -354,12 +360,99 @@ LegalDoc        id, slug(privacy/offer/cookie), title, contentMd, version, publi
 - Пошаговые инструкции: где скачать (ссылки на офиц. сторы/релизы), как вставить ссылку,
   как подключиться. Скриншоты-заглушки + текст. Контент — markdown в БД (редактируемый).
 
-## 10. Админка (минимум, можно простая)
+## 10. Админка
 
-- Список пользователей, подписок, платежей.
-- Управление нодами (добавить/выключить ноду, посмотреть статус).
-- Управление тарифами и юр. документами.
-- Защита: роль admin + отдельный вход.
+Полнофункциональная (не «минимум»). Подключается на Этапе 12 после здоровья
+нод и подписок. Все эндпоинты под `/api/admin/*`, защищены
+`JwtAccessGuard + RolesGuard + @Roles('admin')`, обязательная 2FA TOTP при логине
+админа, опц. `ADMIN_IP_ALLOWLIST` (см. §4b), КАЖДОЕ действие в `AuditLog`.
+
+### 10.1 Пользователи
+
+- Список: email, role, emailVerified, createdAt, кол-во активных подписок,
+  итого заплачено в рублях. Поиск, фильтры (active/expired/deleted).
+- Карточка пользователя: профиль, его подписки, его платежи (+ статусы),
+  AuditLog действий ПО нему (изменения админами).
+- Force-actions (всё с подтверждением и audit):
+  - revoke all sessions (`refreshTokens.updateMany revokedAt`).
+  - force-verify email (для саппорта когда юзер потерял доступ к почте).
+  - force-delete (анонимизация = тот же UsersService.anonymize что в DELETE /auth/me).
+- Никаких полей вида «история посещённых сайтов» — их не существует (§4a).
+
+### 10.2 Подписки
+
+- Список с фильтрами по status, plan, «истекает в ближайшие N дней».
+- Карточка: связанный пользователь, план, endAt, subToken (последние 6 символов),
+  список XrayClient'ов по нодам, последние ротации (через AuditLog).
+- Force-actions: cancel, extend на N дней (по жалобе/гудвилл),
+  rotate subToken (как пользователь, но от имени админа — audit).
+
+### 10.3 Платежи
+
+- Список с фильтрами (status, amount, date range, есть/нет subscription).
+- Карточка: связанные user+sub, raw YooKassa metadata (только для admin).
+- Refund через YooKassa API (если технически возможно — позже).
+- Никакого экспорта ПДн пачкой — только постранично, чтобы не слить базу.
+
+### 10.4 Тарифы (Plan)
+
+- CRUD уже реализован в Этапе 4 (`/api/admin/plans`). Здесь — только UI поверх.
+
+### 10.5 Промокоды (Promo)
+
+Полноценный CRUD + статистика — см. §10.7 ниже.
+
+### 10.6 Ноды (Xray VPS)
+
+- Список с last health-check, текущий статус (online/offline/degraded), вес.
+- Add/update/disable. Reload config / re-sync XrayClients.
+- Никогда не показывать access-логи (их нет, см. §4a).
+
+### 10.7 Промокоды — модель и логика
+
+**Зачем:** реферал-кампании, скидки к ивентам, B2B-договорённости.
+
+**Модель (Prisma):**
+
+- `PromoCode { code, discountKind: 'percent'|'fixedRub', discountValue,
+validFrom?, validUntil?, maxUses?, usedCount, perUserLimit (default 1),
+appliesToPlanIds[] (пусто = ко всем), isActive }`.
+- `PromoRedemption { promoCodeId, userId, paymentId(unique), discountRub }` —
+  доказательство применения, для аудита и анти-абуза.
+
+**Логика применения** (в `PaymentsService.createForUser`):
+
+1. Если в DTO есть `promoCode` — `PromosService.applyForPayment(code, userId, planId)`:
+   - Найти активный, не просроченный, не выбравший maxUses.
+   - Проверить `appliesToPlanIds` (если задано).
+   - Проверить per-user-limit через COUNT(PromoRedemption WHERE userId).
+   - Посчитать `discountRub` (округление вверх).
+   - Сложить операцию в pending-структуру для финальной транзакции.
+2. В Postgres-транзакции:
+   - Создать Payment с amountRub = planPrice - discountRub (не ниже 1 ₽).
+   - Создать PromoRedemption (paymentId pending → fill после создания Payment).
+   - Инкрементировать `PromoCode.usedCount` атомарно.
+3. AuditLog: `promo.redeem` с meta { promoId, userId, planId, discountRub }.
+
+**API:**
+
+- `POST /api/promos/validate` (JwtAccessGuard) — live-проверка из формы оплаты.
+  Возвращает либо `{ ok: true, discountRub }`, либо ошибку без раскрытия деталей
+  (т.е. «не подходит для этого тарифа», «лимит исчерпан» — это OK).
+- `POST /api/payments/create` — расширить DTO опциональным `promoCode`.
+- `GET/POST/PATCH/DELETE /api/admin/promos` — стандартный CRUD под admin.
+- `GET /api/admin/promos/:id/redemptions` — детализация использования.
+
+**Anti-abuse:**
+
+- Rate-limit на `/api/promos/validate`: 30/60s на пользователя.
+- При reuse-detection на refresh-токенах — отзывать также активные промо?
+  Нет, перебор. Достаточно perUserLimit.
+
+### 10.8 Юр. документы (LegalDoc)
+
+- Список slug+version; текущая опубликованная отмечается.
+- Markdown-редактор. Bump version + publish (старая версия живёт для аудита).
 
 ---
 
@@ -425,7 +518,11 @@ LegalDoc        id, slug(privacy/offer/cookie), title, contentMd, version, publi
 10. Своя система выдачи: модуль Node + XrayNodeClient (gRPC) + endpoint /api/sub/:token (§6).
     Документ `docs/PRIVACY-ARCHITECTURE.md` (см. §4a) — описать, как обеспечен no-logs.
 11. Health-check + failover (§7).
-12. Гайды (§9) и админка (§10) — с обязательной 2FA и аудит-логом.
+12. Гайды (§9) и админка (§10) — с обязательной 2FA, аудит-логом, страницами
+    юзеров/подписок/платежей/нод/тарифов/юр.документов.
+    12a. Промокоды (§10.7) — модель Promo + PromoRedemption, /api/promos/validate,
+    расширение /api/payments/create полем promoCode, админ-CRUD,
+    UI «поле промокода» на странице оплаты.
 13. Dockerfile'ы, docker-compose, nginx (HSTS, CSP, rate-limit, gzip/brotli),
     инструкция деплоя на VPS в `docs/DEPLOY.md` (включая перенос с локалки, certbot,
     fail2ban, размещение Postgres в РФ — см. §4).
