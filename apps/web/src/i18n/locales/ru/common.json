@@ -229,6 +229,21 @@
     },
     "toast": {
       "devSimulated": "DEV: оплата засимулирована, подписка активна"
+    },
+    "promo": {
+      "label": "Промокод",
+      "placeholder": "Например, WELCOME20",
+      "applied": "Применён промокод {{code}} — скидка {{discount}} ₽",
+      "errors": {
+        "not_found": "Такого промокода нет",
+        "inactive": "Промокод деактивирован",
+        "not_yet_valid": "Промокод ещё не начал действовать",
+        "expired": "Срок действия промокода истёк",
+        "limit_reached": "Промокод закончился (исчерпан лимит)",
+        "plan_not_allowed": "Промокод неприменим к этому тарифу",
+        "per_user_limit_reached": "Вы уже использовали этот промокод",
+        "generic": "Не получилось применить промокод"
+      }
     }
   },
   "admin": {
@@ -237,6 +252,7 @@
       "overview": "Обзор",
       "users": "Пользователи",
       "payments": "Платежи",
+      "promos": "Промокоды",
       "nodes": "Ноды",
       "guides": "Гайды",
       "legal": "Юр.документы",
@@ -331,6 +347,44 @@
         "actor": "Actor"
       },
       "pageInfo": "{{from}}–{{to}} из {{total}}"
+    },
+    "promos": {
+      "title": "Промокоды",
+      "subtitle": "Всего: {{count}}",
+      "add": "Создать",
+      "cancel": "Отмена",
+      "create": "Создать",
+      "fields": {
+        "code": "Код",
+        "kind": "Тип скидки",
+        "percentValue": "Скидка, %",
+        "rubValue": "Скидка, ₽",
+        "maxUses": "Лимит активаций",
+        "perUserLimit": "Лимит на одного пользователя",
+        "validUntil": "Действует до",
+        "unlimited": "Без лимита"
+      },
+      "kinds": {
+        "percent": "Процент",
+        "fixedRub": "Фикс. сумма"
+      },
+      "cols": {
+        "code": "Код",
+        "discount": "Скидка",
+        "usage": "Использовано",
+        "perUser": "На юзера",
+        "validUntil": "До",
+        "active": "Активен",
+        "actions": "Действия"
+      },
+      "actions": {
+        "deactivate": "Деактивировать"
+      },
+      "confirmDeactivate": "Деактивировать промокод {{code}}?",
+      "toast": {
+        "created": "Промокод создан",
+        "deactivated": "Промокод деактивирован"
+      }
     }
   },
   "cookieBanner": {

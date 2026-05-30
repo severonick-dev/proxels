@@ -436,59 +436,102 @@ isPublished, createdAt, updatedAt)` + миграция `add_guide`.
 - `GET /api/admin/users` без auth → 401.
 - `GET /api/auth/2fa/status` без auth → 401.
 
-## 🔜 Этап 12a — Промокоды (новое требование владельца)
+## ✅ Этап 12a — Промокоды (новое требование владельца)
 
-Добавить в `prisma/schema.prisma`:
+**Prisma:**
 
-```
-model PromoCode {
-  id            String   @id @default(cuid())
-  code          String   @unique          // "WELCOME20"
-  discountKind  PromoKind                  // percent | fixedRub
-  discountValue Int                        // 20 (percent) или 500 (рубли)
-  validFrom     DateTime?
-  validUntil    DateTime?
-  maxUses       Int?                       // null = безлимит
-  usedCount     Int      @default(0)
-  perUserLimit  Int      @default(1)
-  appliesToPlanIds String[] @default([])   // [] = ко всем тарифам
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  redemptions   PromoRedemption[]
-}
+- Новые модели `PromoCode(id, code @unique, discountKind: percent|fixedRub,
+discountValue, validFrom/Until, maxUses, usedCount, perUserLimit,
+appliesToPlanIds: String[], isActive)` и `PromoRedemption(promoCodeId, userId,
+paymentId @unique, discountRub)`. Plus enum `PromoKind`. Миграция `add_promo`.
+- `Payment.promoRedemption` — обратная ссылка для join'ов.
 
-enum PromoKind { percent fixedRub }
+**Backend — Валидация:**
 
-model PromoRedemption {
-  id          String @id @default(cuid())
-  promoCodeId String
-  userId      String
-  paymentId   String  @unique
-  discountRub Int                          // сколько фактически скинули
-  createdAt   DateTime @default(now())
-  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
-  payment     Payment   @relation(fields: [paymentId], references: [id])
-  @@index([promoCodeId])
-  @@index([userId])
-}
-```
+- `apps/api/src/promos/promos.service.ts`:
+  - `normalize(input)` — trim + uppercase + regex `[A-Z0-9_-]{2,32}`.
+    Невалидный формат — мгновенный `not_found` (не палим, что код просто кривой).
+  - `validateForPurchase({code, userId, planId, amountRub})` — последовательная
+    проверка: existence → isActive → validFrom/validUntil окно → `maxUses` →
+    `appliesToPlanIds` → `perUserLimit` (count redemptions). На любом fail —
+    `BadRequestException({ promoError: '<reason>' })`.
+  - `calcDiscount`: для `percent` — floor(amount\*v/100), для `fixedRub` — value;
+    клампится так, чтобы финальная сумма ≥ 1 ₽ (минимум YooKassa).
+  - `redeemAtomic(tx, args)` — записать `PromoRedemption` + CAS-инкремент
+    `usedCount` через `updateMany WHERE usedCount < maxUses`. Если CAS не
+    сработал (race на лимите) — логируется warn без отказа: платёж уже succeeded,
+    отказывать поздно.
+- `PromosController` — `POST /api/promos/validate` под `JwtAccessGuard`,
+  throttle 30/60s.
 
-**API:**
+**Backend — Интеграция в payments:**
 
-- `POST /api/promos/validate` (auth) — проверить промо для (userId, planId), вернуть скидку или ошибку.
-- `POST /api/payments/create` — расширить DTO полем `promoCode?`, применить скидку,
-  записать PromoRedemption атомарно в той же транзакции, что и Payment.
-- `GET/POST/PATCH/DELETE /api/admin/promos` (admin only) — CRUD + список редемций.
+- `CreatePaymentDto` — optional `promoCode`.
+- `PaymentsService.createForUser`:
+  - Если `promoCode` есть — `PromosService.validateForPurchase`. Финальная сумма
+    идёт в YooKassa и в `Payment.amountRub`. Метаданные: `promoId`, `promoCode`,
+    `discountRub`, `originalAmountRub`.
+  - Возвращает `{ amountRub, discountRub }` для UI.
+- `handleSucceeded`: в той же `$transaction`, что создаёт Subscription,
+  вызывается `PromosService.redeemAtomic`. AuditLog: `payment.create`
+  (с `promoCode + discountRub`), `promo.redeem`.
 
-**Frontend:**
+**Backend — Админ-CRUD:**
 
-- Поле «промокод» на странице оплаты тарифа (Phase 8.5 или вместе с админкой).
-- Live-валидация: typing → debounce → POST /validate → показать «-20% = 30 ₽».
-- Админ-страница `/admin/promos` со списком, формой создания, статистикой.
+- `AdminPromosController` (`/api/admin/promos`):
+  - `GET /` — список (фильтр `?active=true`).
+  - `GET /:id`, `GET /:id/redemptions?take&skip`.
+  - `POST /` — create с DTO-валидацией (`code` через тот же normalize,
+    `discountValue` диапазоны для percent/fixedRub).
+  - `PATCH /:id` — частичное обновление; `usedCount` НЕ редактируется через CRUD
+    (только через redeemAtomic).
+  - `DELETE /:id` — soft (isActive=false). История редемций сохраняется.
+- Audit: `admin.promo.create`, `admin.promo.update`, `admin.promo.deactivate`.
 
-**Audit:** `promo.create`, `promo.update`, `promo.deactivate`, `promo.redeem`.
+**Backend — Exception-фильтр:**
+
+- `AllExceptionsFilter` теперь прокидывает дополнительные поля тела
+  `HttpException.getResponse()` в ответ клиенту (например, `promoError`,
+  `requiresTotp`). Копируются только примитивы и flat-массивы строк —
+  чтобы случайно не утечь объекты со stacktrace или внутренним state.
+
+**Frontend — Покупочный диалог:**
+
+- `components/lk/purchase-dialog.tsx`:
+  - Поле «Промокод» с debounce 350мс → `POST /promos/validate`.
+  - Состояния: `idle | checking | ok(data) | error(reason)`. Loader/checkmark в
+    inline-индикаторе. На `ok` — рендерится «применён промокод X — скидка Y ₽»
+    - перечёркнутая старая цена. Поле автоматически делает uppercase visual,
+      backend всё равно нормализует.
+  - При оплате передаёт `promoCode` только если состояние `ok`.
+
+**Frontend — Админка:**
+
+- `pages/admin/promos.tsx`:
+  - Таблица: код, скидка, usage (used/max), perUser limit, validUntil, active.
+  - Inline-форма создания (toggle Plus): код, тип (percent/fixedRub), значение,
+    лимиты, дата истечения.
+  - Деактивация через DELETE с confirm.
+- AdminLayout — добавлен nav-item «Промокоды» (Tag icon).
+- Router — маршрут `/admin/promos`.
+
+**i18n:** `purchase.promo.*` (label, placeholder, applied, errors с reason-keys),
+`admin.nav.promos`, `admin.promos.*` (fields, kinds, cols, actions, toast),
+ru+en.
+
+**Smoke (end-to-end):**
+
+- Создан промо `WELCOME20` (−20%, maxUses=100, perUserLimit=1).
+- Валидация lowercase `welcome20` → `{ ok, discountRub: 30, finalAmountRub: 120 }`
+  на тарифе 150₽.
+- Невалидный код → `400 { promoError: 'not_found' }`.
+- Создание платежа с `promoCode` → `Payment.amountRub=120, discountRub=30`,
+  meta содержит `promoId + promoCode + originalAmountRub`.
+- `dev/simulate-succeeded` → `PromoRedemption(discountRub=30)` создалась,
+  `PromoCode.usedCount=1` атомарно в той же транзакции.
+- Повторная попытка тем же юзером → `400 { promoError: 'per_user_limit_reached' }`.
+- Admin redemptions list → видит редемпцию.
+- Admin deactivate → `isActive=false`.
 
 ## 🔜 Этап 13 — Деплой
 

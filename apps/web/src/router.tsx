@@ -22,6 +22,7 @@ import LkSecurityPage from '@/pages/lk/security';
 import AdminOverviewPage from '@/pages/admin/overview';
 import AdminUsersPage from '@/pages/admin/users';
 import AdminPaymentsPage from '@/pages/admin/payments';
+import AdminPromosPage from '@/pages/admin/promos';
 import AdminNodesPage from '@/pages/admin/nodes';
 import AdminGuidesPage from '@/pages/admin/guides';
 import AdminLegalPage from '@/pages/admin/legal';
@@ -73,6 +74,7 @@ const routes: RouteObject[] = [
           { path: '/admin', element: <AdminOverviewPage /> },
           { path: '/admin/users', element: <AdminUsersPage /> },
           { path: '/admin/payments', element: <AdminPaymentsPage /> },
+          { path: '/admin/promos', element: <AdminPromosPage /> },
           { path: '/admin/nodes', element: <AdminNodesPage /> },
           { path: '/admin/guides', element: <AdminGuidesPage /> },
           { path: '/admin/legal', element: <AdminLegalPage /> },

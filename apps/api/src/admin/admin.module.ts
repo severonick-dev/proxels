@@ -7,6 +7,7 @@ import { AdminAuditController } from './admin-audit.controller.js';
 import { AdminLegalController } from './admin-legal.controller.js';
 import { AdminNodesCrudController } from './admin-nodes-crud.controller.js';
 import { AdminGuidesController } from './admin-guides.controller.js';
+import { AdminPromosController } from './admin-promos.controller.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 
 /**
@@ -21,6 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
     AdminLegalController,
     AdminNodesCrudController,
     AdminGuidesController,
+    AdminPromosController,
   ],
   providers: [RolesGuard],
 })

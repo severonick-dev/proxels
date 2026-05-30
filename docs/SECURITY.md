@@ -356,6 +356,44 @@
 - [ ] Refund платежа через YooKassa API из админки — отдельный риск (нужны refund-creds);
       пока ручной через ЛК YooKassa, отмеченный audit-логом.
 
+## Этап 12a — Промокоды
+
+- [x] Валидация промокода — последовательная и закрытая по reasons:
+      `not_found | inactive | not_yet_valid | expired | limit_reached |
+    plan_not_allowed | per_user_limit_reached`. Передаётся через
+      `BadRequestException({ promoError })`, фильтр прокидывает в тело клиенту.
+- [x] Формат кода проверяется regex `[A-Z0-9_-]{2,32}` ДО запроса в БД —
+      кривые/слишком длинные строки получают сразу `not_found`, без I/O и без
+      «подсказки» о реальной валидной длине.
+- [x] **CAS на `maxUses`** при инкременте `usedCount` через `updateMany WHERE
+    usedCount < maxUses`. Защищает от over-redeem на гонках. Если CAS не
+      сработал — warn в логе (платёж уже succeeded), бизнес-риск ≤ 1-2 лишние
+      редемпции, приемлемо.
+- [x] **Per-user limit** проверяется по `PromoRedemption.userId` (count
+      запрошенный по userId). Не верим клиенту на слово.
+- [x] Финальная сумма платежа **всегда ≥ 1 ₽** (clamp в `calcDiscount`).
+      Запрет бесплатной выдачи подписки через промо — YooKassa-минимум + лишает
+      смысла абуз сценария «100%-off».
+- [x] `Payment.metadata` хранит `promoId + promoCode + discountRub + originalAmountRub` —
+      история сохраняется на случай разбора инцидента, но `usedCount`
+      инкрементируется только в `redeemAtomic` (на `payment.succeeded`).
+- [x] **`usedCount` не редактируется через admin CRUD** — только `redeemAtomic`
+      в payment-транзакции. Защита от ручной правки счётчика (фрод через
+      админа).
+- [x] **Soft-delete промокода** (isActive=false) — история редемций не теряется
+      (для отчётности + 152-ФЗ no-erase финансовых записей).
+- [x] Throttle: `/api/promos/validate` 30/60s, `/api/admin/promos` create
+      30/60s. Перебор через массовую валидацию ограничен.
+- [x] PromoRedemption связан с Payment через `paymentId @unique`, FK с
+      `onDelete: Cascade` — при анонимизации пользователя (Phase 8) Payment'ы
+      остаются (история), редемпции тоже; PromoCode видит, что юзер потратил.
+- [x] AuditLog на всё: `admin.promo.create/update/deactivate` + `promo.redeem`
+      (в meta — promoId + code + discountRub + paymentId). Гудвилл-extends
+      будут таким же путём.
+- [x] **Прокидываем безопасно**: `AllExceptionsFilter` копирует в ответ только
+      примитивы и flat-string-массивы из тела `HttpException` — нельзя случайно
+      утечь внутренние объекты с stacktrace или Prisma-meta.
+
 ## Этап 13 — Деплой
 
 - [ ] HTTPS only, HSTS preload-ready, TLS 1.2+.

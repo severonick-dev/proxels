@@ -216,6 +216,7 @@
       "overview": "Overview",
       "users": "Users",
       "payments": "Payments",
+      "promos": "Promo codes",
       "nodes": "Nodes",
       "guides": "Guides",
       "legal": "Legal docs",
@@ -310,6 +311,44 @@
         "actor": "Actor"
       },
       "pageInfo": "{{from}}–{{to}} of {{total}}"
+    },
+    "promos": {
+      "title": "Promo codes",
+      "subtitle": "Total: {{count}}",
+      "add": "Create",
+      "cancel": "Cancel",
+      "create": "Create",
+      "fields": {
+        "code": "Code",
+        "kind": "Discount type",
+        "percentValue": "Discount, %",
+        "rubValue": "Discount, ₽",
+        "maxUses": "Max activations",
+        "perUserLimit": "Per-user limit",
+        "validUntil": "Valid until",
+        "unlimited": "Unlimited"
+      },
+      "kinds": {
+        "percent": "Percent",
+        "fixedRub": "Fixed sum"
+      },
+      "cols": {
+        "code": "Code",
+        "discount": "Discount",
+        "usage": "Used",
+        "perUser": "Per user",
+        "validUntil": "Until",
+        "active": "Active",
+        "actions": "Actions"
+      },
+      "actions": {
+        "deactivate": "Deactivate"
+      },
+      "confirmDeactivate": "Deactivate promo {{code}}?",
+      "toast": {
+        "created": "Promo created",
+        "deactivated": "Promo deactivated"
+      }
     }
   },
   "purchase": {
@@ -330,6 +369,21 @@
     },
     "toast": {
       "devSimulated": "DEV: payment simulated, subscription is now active"
+    },
+    "promo": {
+      "label": "Promo code",
+      "placeholder": "e.g. WELCOME20",
+      "applied": "Promo {{code}} applied — {{discount}} ₽ off",
+      "errors": {
+        "not_found": "Promo code not found",
+        "inactive": "Promo code is deactivated",
+        "not_yet_valid": "Promo code is not yet active",
+        "expired": "Promo code has expired",
+        "limit_reached": "Promo code has reached its usage limit",
+        "plan_not_allowed": "Promo code does not apply to this plan",
+        "per_user_limit_reached": "You have already used this promo code",
+        "generic": "Could not apply promo code"
+      }
     }
   },
   "cookieBanner": {

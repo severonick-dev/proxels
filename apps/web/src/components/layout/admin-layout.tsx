@@ -1,6 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, CreditCard, FileText, History, ScrollText, Server, Users } from 'lucide-react';
+import {
+  BookOpen,
+  CreditCard,
+  FileText,
+  History,
+  ScrollText,
+  Server,
+  Tag,
+  Users,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/stores/auth-store';
 import { SEO } from '@/components/seo/seo';
@@ -16,6 +25,7 @@ const ITEMS: NavItem[] = [
   { to: '/admin', end: true, labelKey: 'admin.nav.overview', Icon: History },
   { to: '/admin/users', labelKey: 'admin.nav.users', Icon: Users },
   { to: '/admin/payments', labelKey: 'admin.nav.payments', Icon: CreditCard },
+  { to: '/admin/promos', labelKey: 'admin.nav.promos', Icon: Tag },
   { to: '/admin/nodes', labelKey: 'admin.nav.nodes', Icon: Server },
   { to: '/admin/guides', labelKey: 'admin.nav.guides', Icon: BookOpen },
   { to: '/admin/legal', labelKey: 'admin.nav.legal', Icon: FileText },

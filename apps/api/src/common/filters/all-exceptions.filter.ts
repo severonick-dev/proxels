@@ -13,6 +13,7 @@ interface ErrorResponseBody {
   error: string;
   message: string;
   requestId?: string;
+  [extra: string]: unknown;
 }
 
 /**
@@ -48,6 +49,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
             : (((res as { message?: string | string[] }).message as string) ?? exception.message),
         requestId,
       };
+      // Прокинуть наружу типизированные «причины» (например, `promoError` или
+      // `requiresTotp`), которые сервисы кладут в тело исключения. Безопасно
+      // фильтруем — копируем только примитивы и плоские массивы строк.
+      if (typeof res === 'object' && res !== null) {
+        for (const [k, v] of Object.entries(res as Record<string, unknown>)) {
+          if (k === 'statusCode' || k === 'error' || k === 'message' || k === 'requestId') continue;
+          if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+            body[k] = v;
+          } else if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
+            body[k] = v;
+          }
+        }
+      }
       response.status(status).json(body);
       return;
     }

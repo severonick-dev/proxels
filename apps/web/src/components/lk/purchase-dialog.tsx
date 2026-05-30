@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { apiRequest } from '@/lib/api';
+import { ApiError, apiRequest } from '@/lib/api';
 
 interface PlanLite {
   id: string;
@@ -19,7 +20,25 @@ interface CreatePaymentResponse {
   paymentId: string;
   confirmationUrl: string;
   bypassed: boolean;
+  amountRub: number;
+  discountRub: number;
 }
+
+interface PromoValidationResponse {
+  ok: true;
+  promoId: string;
+  code: string;
+  discountKind: 'percent' | 'fixedRub';
+  discountValue: number;
+  discountRub: number;
+  finalAmountRub: number;
+}
+
+type PromoState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'ok'; data: PromoValidationResponse }
+  | { status: 'error'; reason: string };
 
 interface Props {
   plan: PlanLite | null;
@@ -42,6 +61,49 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
   const navigate = useNavigate();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoState, setPromoState] = useState<PromoState>({ status: 'idle' });
+
+  // Сброс состояния при смене плана/закрытии.
+  useEffect(() => {
+    if (!plan) {
+      setAgreed(false);
+      setPromoInput('');
+      setPromoState({ status: 'idle' });
+    }
+  }, [plan]);
+
+  // Debounced live-валидация: 350мс после остановки печати.
+  useEffect(() => {
+    if (!plan) return;
+    const trimmed = promoInput.trim();
+    if (trimmed.length < 2) {
+      setPromoState({ status: 'idle' });
+      return;
+    }
+    setPromoState({ status: 'checking' });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      apiRequest<PromoValidationResponse>('/promos/validate', {
+        method: 'POST',
+        body: { code: trimmed, planId: plan.id },
+        signal: ctrl.signal,
+      })
+        .then((data) => setPromoState({ status: 'ok', data }))
+        .catch((err: unknown) => {
+          if (ctrl.signal.aborted) return;
+          const reason = extractPromoErrorReason(err);
+          setPromoState({ status: 'error', reason });
+        });
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [promoInput, plan]);
+
+  const effectivePromo = promoState.status === 'ok' ? promoState.data : null;
+  const finalAmount = plan ? (effectivePromo?.finalAmountRub ?? plan.priceRub) : 0;
 
   const handlePay = async () => {
     if (!plan) return;
@@ -51,9 +113,17 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
     }
     setSubmitting(true);
     try {
+      const body: Record<string, unknown> = {
+        planId: plan.id,
+        offerAccepted: true,
+      };
+      // Отправляем код только если он валиден (точка истины — backend, но из UX
+      // не имеет смысла слать невалидный код и получать 400).
+      if (effectivePromo) body.promoCode = effectivePromo.code;
+
       const res = await apiRequest<CreatePaymentResponse>('/payments/create', {
         method: 'POST',
-        body: { planId: plan.id, offerAccepted: true },
+        body,
       });
 
       if (res.bypassed) {
@@ -97,7 +167,56 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
               <div className="text-xs uppercase tracking-wider text-muted-foreground">
                 {t('purchase.total')}
               </div>
-              <div className="mt-1 font-display text-3xl font-bold">{plan.priceRub} ₽</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-display text-3xl font-bold">{finalAmount} ₽</span>
+                {effectivePromo && (
+                  <span className="text-sm text-muted-foreground line-through">
+                    {plan.priceRub} ₽
+                  </span>
+                )}
+              </div>
+              {effectivePromo && (
+                <div className="mt-1 text-xs text-emerald-500">
+                  {t('purchase.promo.applied', {
+                    code: effectivePromo.code,
+                    discount: effectivePromo.discountRub,
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="promo-code" className="text-sm font-medium">
+                {t('purchase.promo.label')}
+              </label>
+              <div className="relative">
+                <Input
+                  id="promo-code"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="off"
+                  maxLength={32}
+                  value={promoInput}
+                  onChange={(e) => setPromoInput(e.target.value)}
+                  placeholder={t('purchase.promo.placeholder')}
+                  className="pr-10 uppercase placeholder:normal-case"
+                  aria-invalid={promoState.status === 'error'}
+                  disabled={submitting}
+                />
+                {promoState.status === 'checking' && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                )}
+                {promoState.status === 'ok' && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
+                )}
+              </div>
+              {promoState.status === 'error' && (
+                <div className="text-xs text-destructive">
+                  {t(`purchase.promo.errors.${promoState.reason}`, {
+                    defaultValue: t('purchase.promo.errors.generic'),
+                  })}
+                </div>
+              )}
             </div>
 
             <label className="flex items-start gap-2.5 text-sm">
@@ -151,4 +270,16 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
 function extractYooId(res: CreatePaymentResponse): string {
   const m = res.confirmationUrl.match(/\/dev\/yookassa\/([^/?#]+)/);
   return m?.[1] ?? '';
+}
+
+/**
+ * PromosService отдаёт `{ promoError: 'reason' }` в теле 400. Достаём reason,
+ * чтобы заматчить с i18n-ключами `purchase.promo.errors.<reason>`.
+ */
+function extractPromoErrorReason(err: unknown): string {
+  if (err instanceof ApiError && err.body && typeof err.body === 'object') {
+    const r = (err.body as { promoError?: unknown; message?: unknown }).promoError;
+    if (typeof r === 'string') return r;
+  }
+  return 'generic';
 }

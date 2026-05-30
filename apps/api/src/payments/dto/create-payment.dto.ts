@@ -1,4 +1,4 @@
-import { Equals, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import { Equals, IsOptional, IsString, IsUrl, Length, MinLength } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsString()
@@ -19,4 +19,14 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsUrl({ require_tld: false })
   returnUrl?: string;
+
+  /**
+   * Опциональный промокод. Валидируется и применяется в `PaymentsService.createForUser`.
+   * Сохраняется в `Payment.metadata`, redemption пишется в Postgres-транзакции после
+   * `payment.succeeded` webhook'а (см. `handleSucceeded`).
+   */
+  @IsOptional()
+  @IsString()
+  @Length(2, 32)
+  promoCode?: string;
 }

@@ -59,6 +59,7 @@ export class PaymentsController {
       planId: dto.planId,
       offerAccepted: dto.offerAccepted,
       returnUrl: dto.returnUrl,
+      promoCode: dto.promoCode,
       ip: req.ip,
     });
   }

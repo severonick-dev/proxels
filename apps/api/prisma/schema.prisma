@@ -165,11 +165,63 @@ model Payment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription    Subscription?    @relation(fields: [subscriptionId], references: [id])
+  promoRedemption PromoRedemption?
 
   @@index([userId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Промокоды (этап 12a)
+// Скидка применяется на этапе создания платежа; redemption записывается в ту же
+// транзакцию, что выпускает Subscription (атомарно с биллингом).
+// ---------------------------------------------------------------------------
+
+enum PromoKind {
+  percent
+  fixedRub
+}
+
+model PromoCode {
+  id               String    @id @default(cuid())
+  /// Хранится в верхнем регистре, поиск тоже в upper-case. ASCII A-Z0-9.
+  code             String    @unique
+  discountKind     PromoKind
+  /// Для percent — 1..100. Для fixedRub — рубли > 0.
+  discountValue    Int
+  validFrom        DateTime?
+  validUntil       DateTime?
+  /// null = безлимит.
+  maxUses          Int?
+  usedCount        Int       @default(0)
+  perUserLimit     Int       @default(1)
+  /// Пустой массив = ко всем активным тарифам.
+  appliesToPlanIds String[]  @default([])
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  redemptions PromoRedemption[]
+
+  @@index([isActive, validFrom, validUntil])
+}
+
+model PromoRedemption {
+  id          String   @id @default(cuid())
+  promoCodeId String
+  userId      String
+  paymentId   String   @unique
+  /// Сколько фактически списали (после клампа до min 1₽ на YooKassa).
+  discountRub Int
+  createdAt   DateTime @default(now())
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id])
+  payment   Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([promoCodeId, createdAt])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------

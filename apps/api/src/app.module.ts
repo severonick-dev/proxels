@@ -27,6 +27,7 @@ import { XrayModule } from './xray/xray.module.js';
 import { SubModule } from './sub/sub.module.js';
 import { HealthChecksModule } from './health-checks/health-checks.module.js';
 import { GuidesModule } from './guides/guides.module.js';
+import { PromosModule } from './promos/promos.module.js';
 import { AdminModule } from './admin/admin.module.js';
 
 @Module({
@@ -64,6 +65,7 @@ import { AdminModule } from './admin/admin.module.js';
     HealthChecksModule,
     PlansModule,
     SubscriptionsModule,
+    PromosModule,
     PaymentsModule,
     SubModule,
     LegalModule,

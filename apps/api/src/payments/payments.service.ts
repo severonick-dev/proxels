@@ -13,6 +13,7 @@ import { YookassaService } from '../yookassa/yookassa.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 import { XrayService } from '../xray/xray.service.js';
 import { EnvService } from '../config/env.service.js';
+import { PromosService } from '../promos/promos.service.js';
 import type { YookassaWebhookNotification } from '../yookassa/yookassa.types.js';
 
 /**
@@ -43,6 +44,7 @@ export class PaymentsService {
     private readonly subscriptions: SubscriptionsService,
     private readonly xray: XrayService,
     private readonly env: EnvService,
+    private readonly promos: PromosService,
   ) {}
 
   // --- read API -------------------------------------------------------------
@@ -80,8 +82,15 @@ export class PaymentsService {
     planId: string;
     offerAccepted: boolean;
     returnUrl?: string;
+    promoCode?: string;
     ip?: string | null;
-  }): Promise<{ paymentId: string; confirmationUrl: string; bypassed: boolean }> {
+  }): Promise<{
+    paymentId: string;
+    confirmationUrl: string;
+    bypassed: boolean;
+    amountRub: number;
+    discountRub: number;
+  }> {
     if (!args.offerAccepted) {
       throw new BadRequestException('Public offer must be accepted to proceed (54-ФЗ + ГК ст.437)');
     }
@@ -91,18 +100,34 @@ export class PaymentsService {
     });
     if (!plan) throw new NotFoundException('Plan not available');
 
+    // Применить промокод (если есть). Любая ошибка валидации → 400 как от PromosService.
+    let promo: { id: string; code: string; discountRub: number; finalAmountRub: number } | null =
+      null;
+    if (args.promoCode) {
+      const v = await this.promos.validateForPurchase({
+        code: args.promoCode,
+        userId: args.userId,
+        planId: plan.id,
+        amountRub: plan.priceRub,
+      });
+      promo = {
+        id: v.promoId,
+        code: v.code,
+        discountRub: v.discountRub,
+        finalAmountRub: v.finalAmountRub,
+      };
+    }
+
+    const finalAmount = promo?.finalAmountRub ?? plan.priceRub;
+    const description = `Подписка Proxels: ${plan.name}`;
+
     const returnUrl =
       args.returnUrl ??
       this.env.get('YOOKASSA_RETURN_URL') ??
       `${this.env.get('APP_URL')}/lk/payments`;
 
-    const description = `Подписка Proxels: ${plan.name}`;
-
-    // Создаём в БД pending-запись СНАЧАЛА (id ещё не известен) — после того,
-    // как YooKassa вернёт id, проставим yookassaId. Альтернатива — двухфазная запись.
-    // Здесь делаем последовательно для простоты:
     const issued = await this.yookassa.createPayment({
-      amountRub: plan.priceRub,
+      amountRub: finalAmount,
       description,
       returnUrl,
       customerEmail: args.userEmail,
@@ -110,16 +135,25 @@ export class PaymentsService {
       receipt: { itemDescription: description },
     });
 
+    const meta: Record<string, unknown> = {
+      planId: plan.id,
+      bypassed: issued.bypassed,
+    };
+    if (promo) {
+      meta.promoId = promo.id;
+      meta.promoCode = promo.code;
+      meta.discountRub = promo.discountRub;
+      meta.originalAmountRub = plan.priceRub;
+    }
+
     const payment = await this.prisma.payment.create({
       data: {
         userId: args.userId,
         yookassaId: issued.yookassaId,
-        amountRub: plan.priceRub,
+        amountRub: finalAmount,
         status: mapStatus(issued.status),
         offerAcceptedVersion: CONSENT_VERSIONS.offer,
-        // Связь с конкретным Subscription появится после успешной оплаты.
-        // В metadata храним planId, чтобы webhook знал, какую подписку выпустить.
-        metadata: { planId: plan.id, bypassed: issued.bypassed } as Prisma.InputJsonValue,
+        metadata: meta as Prisma.InputJsonValue,
       },
     });
 
@@ -130,8 +164,12 @@ export class PaymentsService {
       meta: {
         paymentId: payment.id,
         planId: plan.id,
-        amountRub: plan.priceRub,
+        amountRub: finalAmount,
         bypassed: issued.bypassed,
+        ...(promo && {
+          promoCode: promo.code,
+          discountRub: promo.discountRub,
+        }),
       },
     });
 
@@ -139,6 +177,8 @@ export class PaymentsService {
       paymentId: payment.id,
       confirmationUrl: issued.confirmationUrl,
       bypassed: issued.bypassed,
+      amountRub: finalAmount,
+      discountRub: promo?.discountRub ?? 0,
     };
   }
 
@@ -212,6 +252,8 @@ export class PaymentsService {
       throw new BadRequestException('Cannot issue subscription: planId missing');
     }
 
+    const promo = extractPromo(payment);
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const sub = await this.subscriptions.createOrExtendForPayment(tx, {
         userId: payment.userId,
@@ -230,6 +272,17 @@ export class PaymentsService {
       // Если все ноды offline — `materializeForSubscription` ничего не создаст,
       // а позже это сделает /api/sub/:token при первом обращении (lazy).
       await this.xray.materializeForSubscription(sub.id, tx);
+
+      // Промокод: redemption + инкремент usedCount атомарно с биллингом.
+      if (promo) {
+        await this.promos.redeemAtomic(tx, {
+          promoId: promo.promoId,
+          userId: payment.userId,
+          paymentId: payment.id,
+          discountRub: promo.discountRub,
+        });
+      }
+
       return { sub, payment: refreshed };
     });
 
@@ -244,6 +297,20 @@ export class PaymentsService {
         endAt: updated.sub.endAt?.toISOString() ?? null,
       },
     });
+
+    if (promo) {
+      await this.audit.record({
+        action: 'promo.redeem',
+        actorId: payment.userId,
+        ip,
+        meta: {
+          paymentId: payment.id,
+          promoId: promo.promoId,
+          promoCode: promo.code,
+          discountRub: promo.discountRub,
+        },
+      });
+    }
     this.log.log(
       { paymentId: payment.id, subscriptionId: updated.sub.id },
       'Payment succeeded → subscription issued/extended/materialized',
@@ -301,4 +368,15 @@ function extractPlanId(payment: Payment): string | null {
     if (typeof val === 'string') return val;
   }
   return null;
+}
+
+function extractPromo(
+  payment: Payment,
+): { promoId: string; code: string; discountRub: number } | null {
+  const meta = payment.metadata;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+  const m = meta as Record<string, unknown>;
+  if (typeof m.promoId !== 'string' || typeof m.promoCode !== 'string') return null;
+  const discount = typeof m.discountRub === 'number' ? m.discountRub : 0;
+  return { promoId: m.promoId, code: m.promoCode, discountRub: discount };
 }

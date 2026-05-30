@@ -3,9 +3,10 @@ import { PaymentsService } from './payments.service.js';
 import { PaymentsController } from './payments.controller.js';
 import { PaymentsWebhookController } from './webhook/webhook.controller.js';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
+import { PromosModule } from '../promos/promos.module.js';
 
 @Module({
-  imports: [SubscriptionsModule],
+  imports: [SubscriptionsModule, PromosModule],
   controllers: [PaymentsController, PaymentsWebhookController],
   providers: [PaymentsService],
   exports: [PaymentsService],
