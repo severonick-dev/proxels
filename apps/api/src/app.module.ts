@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CaptchaModule } from './captcha/captcha.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { YookassaModule } from './yookassa/yookassa.module.js';
 import { PlansModule } from './plans/plans.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
@@ -50,6 +51,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     CaptchaModule,
     MailModule,
     AuditModule,
+    YookassaModule,
     AuthModule,
     PlansModule,
     SubscriptionsModule,

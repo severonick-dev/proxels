@@ -52,10 +52,23 @@ export const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  // юkassa (станут обязательными на Этапе 5)
+  // юkassa: при пустом YOOKASSA_SHOP_ID — dev-bypass (не вызывает API, создаёт
+  // локальный платёж и фейковый confirmation_url для отладки). В production пустые
+  // shopId/secretKey приведут к ошибке при попытке создать платёж.
   YOOKASSA_SHOP_ID: z.string().optional(),
   YOOKASSA_SECRET_KEY: z.string().optional(),
   YOOKASSA_WEBHOOK_SECRET: z.string().optional(),
+  YOOKASSA_RETURN_URL: z.string().url().optional(),
+  // Параметры фискального чека (54-ФЗ). Дефолты — для ИП на УСН/НПД.
+  // 1=без НДС, 2=0%, 3=10%, 4=20%, 5=10/110, 6=20/120.
+  YOOKASSA_VAT_CODE: z.coerce.number().int().min(1).max(6).default(1),
+  // full_prepayment | partial_prepayment | advance | full_payment | partial_payment | credit | credit_payment
+  YOOKASSA_PAYMENT_MODE: z.string().default('full_prepayment'),
+  // commodity | service | work | payment | composite | another | ...
+  YOOKASSA_PAYMENT_SUBJECT: z.string().default('service'),
+  // CSV-список IP/CIDR, дополнительно разрешённых для webhook поверх захардкоженного
+  // официального списка YooKassa (см. yookassa-ip.guard.ts).
+  YOOKASSA_EXTRA_WEBHOOK_IPS: csv,
 
   // captcha
   CAPTCHA_PROVIDER: z.enum(['yandex', 'hcaptcha', 'none']).default('none'),

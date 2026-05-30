@@ -96,9 +96,39 @@
 
 ## Этап 5 — ЮKassa
 
-- [ ] Webhook проверяет подпись (если YooKassa её даёт) **и** IP-источник (whitelist).
-- [ ] Идемпотентность вебхука: повторный вызов с тем же `yookassaId` не дублирует подписку.
-- [ ] Чек 54-ФЗ формируется корректно (позиция, цена, НДС, email).
+- [x] Webhook защищён `YookassaIpGuard` — CIDR-allowlist официальных подсетей YooKassa
+      (185.71.76.0/27, 185.71.77.0/27, 77.75.153.0/25, 77.75.156.11/32, 77.75.156.35/32,
+      77.75.154.128/25, 2.59.41.0/24) + опц. `YOOKASSA_EXTRA_WEBHOOK_IPS` (CSV из ENV).
+      В dev дополнительно разрешён localhost (127.0.0.1 / ::1 / ::ffff:127.0.0.1).
+      В production за nginx нужен `app.set('trust proxy', 1)` — отметка в DEPLOY.md (Этап 13).
+- [x] Идемпотентность вебхука: `PaymentsService.processWebhookEvent` находит
+      `Payment` по `yookassaId`, если уже в финальном статусе (`succeeded`/`canceled`) —
+      выходит без действий. Повторный webhook не создаёт дубль подписки (verified).
+- [x] Защита от подмены суммы в webhook: при `amount.value != Payment.amountRub` → 403
+      и лог `error` (verified — wrong amount возвращает HTTP 403).
+- [x] Подписка выпускается в Postgres-транзакции с обновлением `Payment`
+      (`createOrExtendForPayment` + `Payment.update` в `$transaction`) — гарантия
+      «либо обе записи, либо ни одной».
+- [x] Повторная оплата того же активного плана продлевает `endAt` существующей
+      подписки (не плодит дубли) — verified +30d от прежнего endAt.
+- [x] Чек 54-ФЗ: при создании платежа в YooKassa передаём `receipt.customer.email`
+      и `receipt.items[0]` с `vat_code` / `payment_mode` / `payment_subject` из ENV
+      (дефолты для ИП на УСН/НПД: `1 / full_prepayment / service`).
+- [x] `Payment.offerAcceptedVersion` сохраняется с версией оферты на момент платежа
+      (см. `@proxels/shared::CONSENT_VERSIONS.offer`). Без `offerAccepted=true` в DTO
+      платёж не создаётся (verified — 400).
+- [x] `subToken` генерируется через `crypto.randomBytes(32).toString('base64url')`
+      (43 символа, ≥256 бит энтропии). См. §4a.
+- [x] `PaymentsController` под `JwtAccessGuard` со scope `where: { userId: req.user.id }` —
+      пользователь не видит чужие платежи (verified — 404 при кросс-доступе).
+- [x] Все важные действия записываются в `AuditLog`: `payment.create`,
+      `payment.canceled`, `subscription.issue` (с ID, без ПДн).
+- [x] Throttle: `payments/create` 10/60s, `payments/webhook` 600/60s
+      (webhook может прилетать часто при ретраях YooKassa).
+- [x] Dev-bypass: `YookassaService` не делает реальный HTTP-запрос, если в development
+      `YOOKASSA_SHOP_ID` пуст/`test`. В production это автоматически выключено
+      (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
+      `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
 ## Этап 6/7 — Frontend
 
