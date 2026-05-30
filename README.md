@@ -77,21 +77,39 @@ proxels/
 - Git.
 
 ```bash
-# Установка зависимостей
+# 1. Установка зависимостей
 pnpm install
 
-# Скопировать переменные окружения
+# 2. Скопировать переменные окружения и заполнить
 cp .env.example .env
 # (Windows PowerShell: Copy-Item .env.example .env)
+# Минимум для локалки уже подставлен в .env.example; для JWT_*_SECRET
+# сгенерируй: openssl rand -base64 48
 
-# Линт и формат (работает уже на Этапе 1)
+# 3. Поднять postgres + redis в Docker
+docker compose -f infra/docker/docker-compose.dev.yml up -d
+
+# 4. Накатить миграции Prisma (после старта postgres)
+pnpm --filter @proxels/api prisma:migrate
+# (для прода: pnpm --filter @proxels/api prisma:deploy)
+
+# 5. Запустить API в watch-режиме
+pnpm dev:api
+# проверка: curl http://localhost:3000/api/health → {"status":"ok",...}
+
+# Линт / формат / typecheck / build (CI прогоняет то же)
 pnpm format:check
-pnpm lint
+pnpm typecheck
+pnpm build
 
-# Разработка (на следующих этапах)
-pnpm dev:api       # запуск backend (этап 2+)
-pnpm dev:web       # запуск frontend (этап 6+)
+# Frontend (с Этапа 6)
+pnpm dev:web
 pnpm dev           # параллельно api+web
+
+# Остановить инфру
+docker compose -f infra/docker/docker-compose.dev.yml down
+# (с удалением данных)
+docker compose -f infra/docker/docker-compose.dev.yml down -v
 ```
 
 ---

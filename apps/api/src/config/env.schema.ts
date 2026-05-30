@@ -1,0 +1,96 @@
+import { z } from 'zod';
+
+// Полный список переменных описан в .env.example.
+// Здесь — runtime-валидация. Сервис не стартует, если что-то обязательное
+// не задано или имеет неверный формат. См. CLAUDE.md §4b.
+
+const portSchema = z.coerce.number().int().positive().max(65_535);
+
+const csv = z
+  .string()
+  .optional()
+  .transform((value) =>
+    value
+      ? value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [],
+  );
+
+export const envSchema = z.object({
+  // окружение
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  APP_URL: z.string().url(),
+  API_URL: z.string().url(),
+  API_PORT: portSchema.default(3000),
+  WEB_PORT: portSchema.default(5173),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent']).default('info'),
+  DEFAULT_LOCALE: z.enum(['ru', 'en']).default('ru'),
+
+  // postgres
+  DATABASE_URL: z.string().url(),
+
+  // redis
+  REDIS_URL: z.string().url(),
+
+  // jwt / auth (понадобится с Этапа 3; обязательны уже сейчас, чтобы случайно не выйти в прод без них)
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be >= 32 chars'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be >= 32 chars'),
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('30d'),
+  COOKIE_DOMAIN: z.string().default('localhost'),
+  COOKIE_SECURE: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .transform((v) => (typeof v === 'string' ? v.toLowerCase() === 'true' : v)),
+
+  // smtp (опционально на Этапе 2; станет обязательным на Этапе 3 — оставляем optional пока)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: portSchema.optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+
+  // юkassa (станут обязательными на Этапе 5)
+  YOOKASSA_SHOP_ID: z.string().optional(),
+  YOOKASSA_SECRET_KEY: z.string().optional(),
+  YOOKASSA_WEBHOOK_SECRET: z.string().optional(),
+
+  // captcha
+  CAPTCHA_PROVIDER: z.enum(['yandex', 'hcaptcha', 'none']).default('none'),
+  CAPTCHA_SITE_KEY: z.string().optional(),
+  CAPTCHA_SERVER_KEY: z.string().optional(),
+
+  // реквизиты владельца (§11a)
+  OWNER_FIO: z.string().default('Коробейников Сергей Сергеевич'),
+  OWNER_OGRNIP: z.string().default('324253600103000'),
+  OWNER_INN: z.string().default('250501904935'),
+  OWNER_ADDRESS: z.string().default('Приморский край, г. Дальнегорск, с. Краснореченский'),
+  CONTACT_EMAIL: z.string().email().default('sergey.korobeynikov@lithops.group'),
+  CONTACT_TELEGRAM: z.string().url().default('https://t.me/proxels'),
+
+  // админка
+  ADMIN_IP_ALLOWLIST: csv,
+
+  // seo / analytics (необязательно)
+  YANDEX_METRIKA_ID: z.string().optional(),
+  YANDEX_WEBMASTER_VERIFICATION: z.string().optional(),
+  GOOGLE_SEARCH_CONSOLE_VERIFICATION: z.string().optional(),
+
+  // xray
+  XRAY_NODE_API_TOKEN: z.string().min(16, 'XRAY_NODE_API_TOKEN must be >= 16 chars'),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+export function validateEnv(config: Record<string, unknown>): Env {
+  const parsed = envSchema.safeParse(config);
+  if (!parsed.success) {
+    const formatted = parsed.error.issues
+      .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('\n');
+    throw new Error(`Invalid environment variables:\n${formatted}`);
+  }
+  return parsed.data;
+}

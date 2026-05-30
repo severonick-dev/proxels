@@ -17,12 +17,25 @@
 
 ## Этап 2 — Backend NestJS
 
-- [ ] Helmet включён глобально.
-- [ ] CORS — только `proxels.ru` (в dev — настраиваемый whitelist через ENV).
-- [ ] `class-validator` для всех DTO; `whitelist: true`, `forbidNonWhitelisted: true`.
-- [ ] Глобальный `@nestjs/throttler` с Redis-store.
-- [ ] Все ENV — валидируются на старте (Joi/Zod) — сервис не стартует без обязательных.
-- [ ] `prisma.$queryRawUnsafe` запрещён код-ревью и линтером.
+- [x] Helmet включён глобально (`apps/api/src/main.ts`).
+- [x] CORS — только `proxels.ru` в prod; в dev — `APP_URL` + `http://localhost:5173`,
+      `credentials: true`. См. `apps/api/src/main.ts`.
+- [x] Глобальный `ValidationPipe` (`whitelist: true`, `forbidNonWhitelisted: true`,
+      `transform: true`) в `apps/api/src/app.module.ts`.
+- [x] Глобальный `@nestjs/throttler` (`ThrottlerGuard` через `APP_GUARD`) с Redis-storage
+      (`@nest-lab/throttler-storage-redis`). Базовый лимит — 100 req / 60s, на auth-эндпоинтах
+      повысим/понизим на Этапе 3.
+- [x] Все ENV валидируются на старте через zod (`apps/api/src/config/env.schema.ts`).
+      Сервис не стартует, если что-то обязательное не задано или имеет неверный формат.
+- [x] Глобальный `AllExceptionsFilter` — никаких стектрейсов клиенту, всё на сервере в pino.
+- [x] pino-логгер с `redact` (Authorization, cookie, password, refreshToken, totpCode);
+      `subToken`/`verify`/`reset` сегменты URL маскируются перед записью в лог.
+- [x] `cookie-parser` подключён (готовность к refresh-cookie в Этапе 3).
+- [x] `BigInt → JSON` сериализатор настроен (Subscription.trafficUsedBytes — BigInt).
+- [ ] `prisma.$queryRawUnsafe` запрещён код-ревью и линтером — добавим правило ESLint
+      в Этап 3 (когда подключим линтер).
+- [ ] `pnpm audit` в CI как блокирующая стадия — пока non-blocking; включим, когда стабилизируем
+      боевые зависимости.
 
 ## Этап 3 — Auth
 

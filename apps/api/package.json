@@ -5,15 +5,50 @@
   "description": "Backend (NestJS) — auth, billing, subscriptions, Xray node orchestration.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "echo 'api build will be configured in phase 2 (NestJS)'",
-    "dev": "echo 'api dev will be configured in phase 2 (NestJS)'",
-    "typecheck": "echo 'api typecheck will be configured in phase 2'",
-    "lint": "echo 'api lint will be configured in phase 2'"
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo 'eslint will be wired in a follow-up phase'",
+    "prisma:generate": "dotenv -e ../../.env -- prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "prisma:studio": "dotenv -e ../../.env -- prisma studio",
+    "prisma:format": "prisma format"
   },
   "dependencies": {
-    "@proxels/shared": "workspace:*"
+    "@nest-lab/throttler-storage-redis": "^1.2.0",
+    "@nestjs/common": "^11.1.24",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.1.24",
+    "@nestjs/platform-express": "^11.1.24",
+    "@nestjs/terminus": "^11.1.1",
+    "@nestjs/throttler": "^6.5.0",
+    "@prisma/client": "^6.19.3",
+    "@proxels/shared": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.4",
+    "cookie-parser": "^1.4.7",
+    "helmet": "^8.2.0",
+    "ioredis": "^5.11.0",
+    "nestjs-pino": "^4.6.1",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.21",
+    "@nestjs/schematics": "^11.1.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.19.19",
+    "dotenv-cli": "^7.4.4",
+    "pino-pretty": "^11.3.0",
+    "prisma": "^6.19.3",
+    "source-map-support": "^0.5.21",
+    "tsx": "^4.22.3",
     "typescript": "^5.7.2"
   }
 }

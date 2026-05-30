@@ -1,0 +1,53 @@
+# Локальная разработка — только инфраструктурные сервисы.
+# Backend и frontend запускаются нативно через `pnpm dev:api` / `pnpm dev:web`
+# для быстрого hot-reload. Боевой docker-compose со всеми сервисами — Этап 13.
+#
+# Запуск:  docker compose -f infra/docker/docker-compose.dev.yml up -d
+# Остановка: docker compose -f infra/docker/docker-compose.dev.yml down
+#
+# Данные сохраняются в именованных volume-ах (см. ниже), чтобы переживать перезапуск.
+
+name: proxels-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: proxels-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-proxels}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-proxels_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-proxels}
+      # Чтобы выйти на одно и то же поведение, что и в проде по часовому поясу
+      TZ: Europe/Moscow
+      PGTZ: Europe/Moscow
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "${POSTGRES_USER:-proxels}" -d "${POSTGRES_DB:-proxels}"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: proxels-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--save', '60', '1']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+    name: proxels-dev-postgres-data
+  redis-data:
+    name: proxels-dev-redis-data

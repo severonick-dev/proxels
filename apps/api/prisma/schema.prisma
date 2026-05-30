@@ -1,0 +1,226 @@
+// Prisma schema — Proxels backend.
+// Полная модель данных согласно prompts/CLAUDE.md §5.
+// Реализация репозиториев/сервисов накручивается на каждом следующем этапе.
+// Запрещено добавлять модели вида VisitLog / TrafficLog(per-destination) — см. §4a.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Пользователи и роли
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  user
+  admin
+}
+
+enum Locale {
+  ru
+  en
+}
+
+model User {
+  id                     String    @id @default(cuid())
+  email                  String    @unique
+  passwordHash           String
+  emailVerified          Boolean   @default(false)
+  emailVerifyToken       String?   @unique
+  passwordResetToken     String?   @unique
+  passwordResetExpiresAt DateTime?
+  role                   UserRole  @default(user)
+  locale                 Locale    @default(ru)
+
+  // 152-ФЗ: версионируем согласие
+  consentPdnAt      DateTime?
+  consentPdnVersion String?
+
+  // 2FA для админа (для обычных user — опционально, для admin — обязательно при логине)
+  totpSecret String?
+
+  // Право на забвение: soft-delete + анонимизация (см. §4)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+  payments      Payment[]
+  auditLogs     AuditLog[]     @relation("ActorAuditLogs")
+
+  @@index([deletedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Тарифы / подписки / платежи
+// ---------------------------------------------------------------------------
+
+model Plan {
+  id             String   @id @default(cuid())
+  name           String
+  priceRub       Int
+  durationDays   Int
+  trafficLimitGb Int?
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscriptions Subscription[]
+
+  @@index([isActive, sortOrder])
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  expired
+  cancelled
+}
+
+model Subscription {
+  id      String             @id @default(cuid())
+  userId  String
+  planId  String
+  status  SubscriptionStatus @default(pending)
+  startAt DateTime?
+  endAt   DateTime?
+
+  // §4a: subToken >=32 байта random, с возможностью ротации из ЛК
+  subToken          String    @unique
+  subTokenRotatedAt DateTime?
+
+  // Биллинг трафика: только агрегаты, без per-destination (§4a)
+  trafficUsedBytes BigInt @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan         @relation(fields: [planId], references: [id])
+  payments    Payment[]
+  xrayClients XrayClient[]
+
+  @@index([userId])
+  @@index([status, endAt])
+}
+
+enum PaymentStatus {
+  pending
+  waiting_for_capture
+  succeeded
+  canceled
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String
+  subscriptionId String?
+  yookassaId     String        @unique
+  amountRub      Int
+  status         PaymentStatus @default(pending)
+  receiptSent    Boolean       @default(false)
+
+  // §4: фиксируем версию оферты на момент оплаты
+  offerAcceptedVersion String?
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Xray-ноды и подписки клиентов на нодах
+// ---------------------------------------------------------------------------
+
+enum NodeStatus {
+  online
+  offline
+  degraded
+}
+
+model Node {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  host        String
+  country     String
+  xrayApiAddr String // gRPC API адрес (host:port)
+  publicKey   String // Reality public key
+  shortId     String // Reality short_id
+  inboundTag  String     @default("vless-reality")
+  status      NodeStatus @default(offline)
+  weight      Int        @default(100)
+  isActive    Boolean    @default(true)
+  lastCheckAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  xrayClients XrayClient[]
+
+  @@index([status, isActive])
+}
+
+model XrayClient {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  nodeId         String
+  uuid           String   @unique
+  addedAt        DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  node         Node         @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, nodeId])
+  @@index([nodeId])
+}
+
+// ---------------------------------------------------------------------------
+// Аудит админских действий и редактируемые юр.документы
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String? // null для системных действий
+  action    String // например: "node.create", "plan.update", "user.delete"
+  meta      Json?
+  ip        String? // IP актора (не клиента под VPN!)
+  createdAt DateTime @default(now())
+
+  actor User? @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+enum LegalDocSlug {
+  privacy
+  offer
+  cookie
+}
+
+model LegalDoc {
+  id          String       @id @default(cuid())
+  slug        LegalDocSlug
+  title       String
+  contentMd   String
+  version     String // semver-подобная строка, либо ISO-дата
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([slug, version])
+  @@index([slug, publishedAt])
+}
