@@ -130,6 +130,37 @@
       (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
       `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
+## Этап 11 — Health-check + failover
+
+- [x] `HealthChecksModule` (Global) с BullMQ repeatable job: каждые
+      `HEALTH_CHECK_INTERVAL_SECONDS` (default 30) пробит каждую active-ноду
+      TCP-connect'ом на её `xrayApiAddr` с таймаутом `HEALTH_CHECK_TIMEOUT_MS`.
+- [x] Анти-флаппинг: `HEALTH_FLAP_UP_THRESHOLD` подряд успехов → online,
+      `HEALTH_FLAP_DOWN_THRESHOLD` подряд фейлов → offline. Промежуточное
+      состояние → `degraded`. Счётчики consecutive succ/fail хранятся в Redis
+      hash `proxels:nodes:health:<id>` (TTL 1ч на самоочистку, если нода
+      исчезла из БД).
+- [x] Redis-кэш списка online-ID нод: SET `proxels:nodes:online` (TTL 90s).
+      Обновляется на каждой итерации probeAll. Используется в `SubService`
+      (быстрый путь без JOIN с Node), фолбэк на БД если кэш пуст.
+- [x] DB Node.status пишется ТОЛЬКО при смене статуса (минимизируем нагрузку).
+      `lastCheckAt` дёргается выборочно (~20% циклов) — для отображения в админке.
+- [x] Repeatable job регистрируется через `onModuleInit`. При старте API очищаем
+      старые repeatable jobs под нашим jobId, чтобы не плодить призраков при
+      смене интервала в dev. Первый прогон сразу при старте, не ждём интервал.
+- [x] `GET /api/admin/nodes` + `GET /api/admin/nodes/health` под
+      `JwtAccessGuard + RolesGuard + @Roles('admin')`. Throttle 60/60s.
+      `/health` агрегирует БД-данные + Redis-counters + onlineCount.
+- [x] BullMQ использует `prefix: 'proxels:bull'` чтобы не конфликтовать с
+      throttler-storage-redis ключами и нашими собственными.
+- [x] Verified end-to-end: 2 dev-ноды на закрытый порт `127.0.0.1:55555`
+      ушли в `offline` после 2 неудачных проб (fail=5 после 5 циклов),
+      1 нода на `127.0.0.1:5432` (postgres слушает) — `online`.
+      `/api/sub/:token` теперь возвращает URI **только живой ноды**.
+- [x] **Failover на уровне подписки**: упавшая нода не попадает в выдачу
+      клиентского URI; клиент сам выбирает живую из списка. Это и есть
+      требование §1 из CLAUDE.md.
+
 ## Этап 10 — Своя система выдачи + Xray-абстракция
 
 - [x] `GET /api/sub/:subToken` под `Throttle(30/60s)`. На любые проблемы (sub

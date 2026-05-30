@@ -12,3 +12,4 @@ allowBuilds:
   argon2: true
   '@swc/core': true
   esbuild: true
+  msgpackr-extract: true

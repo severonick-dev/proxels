@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { XrayService } from '../xray/xray.service.js';
+import { NodesHealthService } from '../health-checks/nodes-health.service.js';
 import { buildVlessRealityUri } from './vless-uri.js';
 
 export interface SubResponse {
@@ -22,6 +23,7 @@ export class SubService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly xray: XrayService,
+    private readonly nodesHealth: NodesHealthService,
   ) {}
 
   /**
@@ -38,15 +40,21 @@ export class SubService {
     if (sub.status !== SubscriptionStatus.active) throw new NotFoundException();
     if (!sub.endAt || sub.endAt.getTime() <= Date.now()) throw new NotFoundException();
 
-    // Lazy materialization: если XrayClient'ов нет (например, в момент оплаты не было
-    // ни одной online-ноды) — попробовать сейчас.
+    // Быстрый путь: список ID online-нод из Redis-кэша (обновляется BullMQ
+    // health-check'ом каждые HEALTH_CHECK_INTERVAL_SECONDS). Если кэш пуст —
+    // service сам фолбэк-нётся в БД.
+    const onlineNodeIds = await this.nodesHealth.getOnlineNodeIds();
+
+    // Подтянуть XrayClient'ы подписки, отфильтровать только по живым нодам.
     let clients = await this.prisma.xrayClient.findMany({
-      where: { subscriptionId: sub.id, node: { isActive: true, status: 'online' } },
+      where: { subscriptionId: sub.id, nodeId: { in: onlineNodeIds } },
       include: { node: true },
     });
     if (clients.length === 0) {
+      // Lazy materialization: возможно в момент оплаты ни одной online-ноды не
+      // было, либо появилась новая нода после выпуска подписки.
       const materialized = await this.xray.materializeForSubscription(sub.id);
-      clients = materialized.filter((c) => c.node.isActive && c.node.status === 'online');
+      clients = materialized.filter((c) => onlineNodeIds.includes(c.node.id));
     }
 
     if (clients.length === 0) {

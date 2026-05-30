@@ -25,6 +25,7 @@ import { LegalModule } from './legal/legal.module.js';
 import { PublicConfigModule } from './public-config/public-config.module.js';
 import { XrayModule } from './xray/xray.module.js';
 import { SubModule } from './sub/sub.module.js';
+import { HealthChecksModule } from './health-checks/health-checks.module.js';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SubModule } from './sub/sub.module.js';
     YookassaModule,
     AuthModule,
     XrayModule,
+    HealthChecksModule,
     PlansModule,
     SubscriptionsModule,
     PaymentsModule,

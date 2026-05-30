@@ -95,6 +95,16 @@ export const envSchema = z.object({
   XRAY_NODE_API_TOKEN: z.string().min(16, 'XRAY_NODE_API_TOKEN must be >= 16 chars'),
   /** Реализация клиента к нодам Xray. В dev — noop (ничего не делает). */
   XRAY_CLIENT: z.enum(['noop', 'grpc']).default('noop'),
+
+  // --- Health-check нод (Этап 11) ------------------------------------------
+  /** Период TCP-проб каждой ноды в секундах (Repeatable job BullMQ). */
+  HEALTH_CHECK_INTERVAL_SECONDS: z.coerce.number().int().min(5).max(600).default(30),
+  /** Таймаут одной TCP-пробы в миллисекундах. */
+  HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(3_000),
+  /** Сколько успешных подряд проб должно быть для перехода offline → online (анти-флаппинг). */
+  HEALTH_FLAP_UP_THRESHOLD: z.coerce.number().int().min(1).max(20).default(2),
+  /** Сколько неудачных подряд для перехода online → offline. */
+  HEALTH_FLAP_DOWN_THRESHOLD: z.coerce.number().int().min(1).max(20).default(3),
 });
 
 export type Env = z.infer<typeof envSchema>;

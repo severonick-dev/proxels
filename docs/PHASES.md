@@ -278,12 +278,54 @@ GitHub: https://github.com/severonick-dev/proxels
 - `Node` таблица содержит port/sni/status
 - AuditLog: `subscription.issue` (4)
 
-## 🔜 Этап 11 — Health-check + failover
+## ✅ Этап 11 — Health-check + failover
 
-- BullMQ repeatable job: TCP-probe каждой ноды каждые N секунд.
-- Обновление `Node.status` (online/offline/degraded) с анти-флаппингом.
-- Redis-кэш статуса для быстрого `/api/sub/:token`.
-- Endpoint `/api/health/nodes` для админки.
+**Backend (`apps/api/src/health-checks/`):**
+
+- `probe.ts` — `tcpProbe(addr, timeoutMs)`: открыть TCP-соединение,
+  на success → true, на error/timeout → false. Двойная страховка таймером.
+- `nodes-health.service.ts` — `probeAll()`: проходит по каждой active-ноде,
+  делает TCP-probe её `xrayApiAddr`, применяет анти-флаппинг (счётчики в
+  Redis hash `proxels:nodes:health:<id>`), обновляет БД `Node.status`
+  ТОЛЬКО при смене. Поддерживает SET `proxels:nodes:online` (TTL 90s) —
+  быстрый кэш для `/api/sub/:token`.
+- `nodes-health.processor.ts` — BullMQ `WorkerHost` + `@Processor`.
+  В `onModuleInit` чистит старые repeatable-jobs и регистрирует новый с
+  интервалом `HEALTH_CHECK_INTERVAL_SECONDS`. Сразу один прогон, чтобы
+  сократить «холодное окно» после рестарта.
+- `health-checks.module.ts` (Global): `BullModule.forRootAsync` парсит
+  REDIS_URL, prefix `proxels:bull` (не конфликтует с throttler-storage).
+- `admin-nodes.controller.ts` — `GET /api/admin/nodes` (list) +
+  `GET /api/admin/nodes/health` (агрегированно: nodes + health-counters
+  - onlineCount). Под JwtAccessGuard + RolesGuard + Roles('admin').
+
+**Анти-флаппинг логика:**
+
+- `consecutiveSuccess >= HEALTH_FLAP_UP_THRESHOLD` → online
+- `consecutiveFailure >= HEALTH_FLAP_DOWN_THRESHOLD` → offline
+- иначе если online→fail или offline→succ — degraded (промежуточное)
+
+**Оптимизация `SubService`:**
+
+- Теперь читает онлайн-ноды из Redis SET одним SMEMBERS вместо JOIN с БД.
+  Если кэш пуст (воркер ещё не отработал) — фолбэк к БД.
+
+**ENV:**
+
+- `HEALTH_CHECK_INTERVAL_SECONDS` (default 30, min 5, max 600)
+- `HEALTH_CHECK_TIMEOUT_MS` (default 3000)
+- `HEALTH_FLAP_UP_THRESHOLD` (default 2)
+- `HEALTH_FLAP_DOWN_THRESHOLD` (default 3)
+
+**Verified end-to-end:**
+
+- Изменили dev-ноды на закрытый порт `127.0.0.1:55555` → через 2 цикла
+  health-check'а перешли в `offline` (fail=5, succ=0).
+- Добавили `dev-online-1` → `127.0.0.1:5432` (открытый postgres) →
+  через 1 цикл `online` (succ=5).
+- `/api/sub/:token` теперь возвращает URI **только живой ноды**
+  (`dev-online-1`), мёртвые исключены — failover работает.
+- `/api/admin/nodes/health` показывает onlineCount=1, детали со счётчиками.
 
 ## 🔜 Этап 12 — Гайды + АДМИНКА
 
