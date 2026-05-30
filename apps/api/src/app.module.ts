@@ -13,6 +13,9 @@ import { RedisModule } from './redis/redis.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { buildPinoConfig } from './common/logger/pino.config.js';
+import { AuthModule } from './auth/auth.module.js';
+import { CaptchaModule } from './captcha/captcha.module.js';
+import { MailModule } from './mail/mail.module.js';
 
 @Module({
   imports: [
@@ -40,6 +43,9 @@ import { buildPinoConfig } from './common/logger/pino.config.js';
 
     PrismaModule,
     RedisModule,
+    CaptchaModule,
+    MailModule,
+    AuthModule,
     HealthModule,
   ],
   providers: [

@@ -39,15 +39,35 @@
 
 ## Этап 3 — Auth
 
-- [ ] Пароли — argon2id (память >= 64 MB, итерации по рекомендациям OWASP).
-- [ ] CAPTCHA (Yandex SmartCaptcha) на `register`, `login`, `forgot-password`.
-- [ ] Honeypot-поля в формах регистрации.
-- [ ] Подтверждение email обязательно перед оплатой и выдачей подписки.
-- [ ] Согласие на ПДн (152-ФЗ): хранится `consentPdnAt` + `consentPdnVersion`.
-- [ ] Rate-limit на auth: IP + email, экспоненциальный backoff.
-- [ ] Refresh-токен — только в httpOnly + secure (prod) + sameSite cookie.
-- [ ] Access-токен — короткий TTL (15 мин), refresh — rotation + reuse-detection.
-- [ ] Сброс пароля — одноразовая ссылка с TTL <= 1 час, инвалидируется после использования.
+- [x] Пароли — argon2id (`memoryCost=65536` (64 MB), `timeCost=3`, `parallelism=1`).
+      `apps/api/src/auth/auth.service.ts` (`ARGON2_OPTS`).
+- [x] CAPTCHA на `register`, `login`, `forgot-password`, `resend-verification`.
+      Провайдеры: Yandex SmartCaptcha (РФ), hCaptcha, `none` (только dev — фабрика бросит
+      при `NODE_ENV=production`). `apps/api/src/captcha/`.
+- [x] Honeypot-поле `website` в `RegisterDto` + silent fake-success при заполнении
+      (бот получает 202 без создания юзера, не палим механизм). См. `auth.service.ts:register`.
+- [x] Подтверждение email обязательно перед логином: `AuthService.login` бросает 403
+      при `!emailVerified`. Verify-token — 32 байта `crypto.randomBytes` base64url.
+- [x] Согласие на ПДн (152-ФЗ): `User.consentPdnAt` + `User.consentPdnVersion`,
+      версия читается из `@proxels/shared::CONSENT_VERSIONS.privacy` (пока хардкод,
+      на Этапе 9 переедет в `LegalDoc`).
+- [x] Rate-limit на auth-эндпоинтах (`@Throttle` per-route поверх глобального):
+      `register: 5/60s`, `login: 10/60s`, `refresh: 60/60s`, `forgot-password: 3/60s`,
+      `resend-verification: 3/60s`, `reset-password: 10/60s`.
+      Экспоненциальный backoff/блокировку по фейловым попыткам добавим, когда увидим реальный паттерн атак.
+- [x] Refresh-токен — httpOnly + sameSite (`strict` в prod, `lax` в dev) + secure (prod),
+      `path=/api/auth` (узкая поверхность). Cookie name из `@proxels/shared::REFRESH_COOKIE_NAME`.
+- [x] Access-токен — JWT (HS256), TTL = `JWT_ACCESS_TTL` (по умолчанию 15m).
+- [x] Refresh — rotation (новый jti на каждый refresh) + reuse-detection:
+      при повторном использовании отозванного токена отзывается вся `family`
+      (`RefreshToken.familyId`). См. `tokens.service.ts:validateRefreshAndRotate`.
+- [x] Сброс пароля — одноразовый токен 32 байта, TTL = 60 минут (`PASSWORD_RESET_TTL_MIN`),
+      после `reset-password` токен очищается и **все** refresh-токены пользователя отзываются
+      (`reason='forced'`).
+- [x] Email-инфраструктура — заглушка `MailService` (логирует payload в pino), будет
+      заменена на реальный SMTP/nodemailer на сервере (см. `mail.service.ts`).
+- [x] Тайминговая атака на login mitigated: при отсутствии юзера выполняется фиктивный
+      `argon2.verify` против фиксированного хеша, чтобы выровнять время ответа.
 
 ## Этап 5 — ЮKassa
 

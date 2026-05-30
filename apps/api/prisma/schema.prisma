@@ -54,8 +54,38 @@ model User {
   subscriptions Subscription[]
   payments      Payment[]
   auditLogs     AuditLog[]     @relation("ActorAuditLogs")
+  refreshTokens RefreshToken[]
 
   @@index([deletedAt])
+}
+
+/// Refresh-токены с rotation + reuse-detection.
+/// Храним хеш токена (sha256), сам raw-токен живёт только в httpOnly cookie у клиента.
+/// Если придёт уже отозванный jti — это reuse → отзываем всю family (по familyId).
+model RefreshToken {
+  id            String    @id @default(cuid())
+  userId        String
+  /// Идентификатор «семьи» токенов: при ротации копируем у предыдущего.
+  familyId      String
+  /// sha256(токен) — хранимая идентификация токена (не raw!).
+  tokenHash     String    @unique
+  /// jti из JWT — для удобства логирования.
+  jti           String    @unique
+  /// Что заменило этот токен после ротации (null = текущий валидный).
+  replacedById  String?
+  revokedAt     DateTime?
+  /// Причина отзыва: 'logout' | 'rotation' | 'reuse' | 'forced'
+  revokedReason String?
+  expiresAt     DateTime
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
 }
 
 // ---------------------------------------------------------------------------
