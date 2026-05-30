@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
+import { ChangePasswordDto } from './dto/change-password.dto.js';
+import { DeleteAccountDto } from './dto/delete-account.dto.js';
 
 const REFRESH_PATH = '/api/auth';
 
@@ -116,6 +119,47 @@ export class AuthController {
   async me(@CurrentUser() user: AuthenticatedUser) {
     const full = await this.auth.me(user.id);
     return full ? this.users.toPublic(full) : null;
+  }
+
+  // -- смена пароля / удаление аккаунта --------------------------------------
+
+  @Post('change-password')
+  @UseGuards(JwtAccessGuard)
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+      this.ctx(req),
+    );
+    // Сами тоже выкидываем cookie — пользователь перелогинится в браузере.
+    res.clearCookie(REFRESH_COOKIE_NAME, this.cookieOptions(0));
+    return result;
+  }
+
+  /**
+   * Удалить аккаунт. Требует ввод текущего пароля. Анонимизирует ПДн и отзывает
+   * все сессии. Право на забвение по 152-ФЗ (см. §4 CLAUDE.md).
+   */
+  @Delete('me')
+  @UseGuards(JwtAccessGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 3, ttl: seconds(60) } })
+  async deleteMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: DeleteAccountDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.auth.deleteAccount(user.id, dto.currentPassword, this.ctx(req));
+    res.clearCookie(REFRESH_COOKIE_NAME, this.cookieOptions(0));
   }
 
   // -- helpers ---------------------------------------------------------------

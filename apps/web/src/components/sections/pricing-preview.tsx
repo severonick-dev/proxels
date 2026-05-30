@@ -28,7 +28,7 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
 
   useEffect(() => {
     const ctl = new AbortController();
-    apiRequest<ApiPlan[]>('/plans', { signal: ctl.signal, credentials: 'omit' })
+    apiRequest<ApiPlan[]>('/plans', { signal: ctl.signal, auth: false, skipCredentials: true })
       .then((data) => {
         setPlans(data);
         onLoad?.(data);

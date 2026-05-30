@@ -28,6 +28,25 @@ export class SubscriptionsService {
   }
 
   /**
+   * Ротация subToken по запросу пользователя из ЛК (см. §4a).
+   * Старый subToken инвалидируется: больше не будет находиться по `/api/sub/<old>`.
+   * Клиенту нужно скопировать новую ссылку в приложение (или пересканить QR).
+   *
+   * Не трогает связанные XrayClient'ы — они привязаны к подписке, не к токену.
+   */
+  async rotateSubTokenForUser(userId: string, subId: string): Promise<SubscriptionWithPlan> {
+    const sub = await this.prisma.subscription.findFirst({
+      where: { id: subId, userId },
+    });
+    if (!sub) throw new NotFoundException('Subscription not found');
+    return this.prisma.subscription.update({
+      where: { id: sub.id },
+      data: { subToken: generateSubToken(), subTokenRotatedAt: new Date() },
+      include: { plan: true },
+    });
+  }
+
+  /**
    * Активация/продление подписки по успешному платежу.
    *
    * Логика:

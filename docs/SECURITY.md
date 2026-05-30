@@ -130,6 +130,40 @@
       (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
       `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
+## Этап 8 — ЛК
+
+- [x] Auth-стора Zustand хранит access-токен **только в памяти** (никакого
+      localStorage, см. §13 CLAUDE.md). На refresh refresh-cookie сама
+      доезжает до /api/auth/refresh.
+- [x] API-клиент с auto-refresh на 401: один in-flight refresh шарится между
+      параллельными запросами (нет «гонок» рефреша). См. `apps/web/src/lib/api.ts`.
+- [x] ProtectedRoute на /lk и /admin: loading → spinner, anon → редирект на
+      /auth/login?return=..., role mismatch → /. См. `apps/web/src/components/auth/protected-route.tsx`.
+- [x] Все формы — react-hook-form + zod, ошибки локализованы через i18n.
+- [x] Honeypot-поле `website` в register (абсолютно позиционировано за экраном,
+      tabIndex=-1, aria-hidden). При заполнении backend silently 202.
+- [x] Согласие на ПДн (152-ФЗ) — обязательный checkbox в register, заблокирует
+      submit; backend ещё раз проверит на DTO-уровне.
+- [x] CAPTCHA-поле абстрагировано: в dev (`VITE_CAPTCHA_PROVIDER=none`) — noop,
+      в prod — Yandex SmartCaptcha (TODO когда появится shopId).
+- [x] **Smartphone-сценарии прошли e2e**: register → verify-email (auto-call) →
+      login → /lk → dashboard с QR + subscription URL → rotate subToken (новый
+      токен в БД, `subTokenRotatedAt` обновляется) → payments table → settings
+      (change-password выкидывает все refresh, delete account анонимизирует ПДн).
+- [x] Backend: новые эндпоинты: - `POST /api/subscriptions/me/:id/rotate-token` — scoped to userId,
+      throttle 5/60s, audit `subscription.rotate-token`. Кросс-юзер → 404. - `POST /api/auth/change-password` — verify current via argon2,
+      revoke all refresh tokens, clear refresh cookie, audit `auth.change-password`.
+      Same-as-current → 400, wrong current → 401. - `DELETE /api/auth/me` — verify current password (защита от XSS-перехвата
+      сессии: атакующему с access-токеном пароля нет), `UsersService.anonymize`
+      в транзакции (email → `deleted-user-<id>@anon.proxels.invalid`, hash → 'invalid',
+      revoke refresh, deletedAt=now), очистить cookie. Финансовые записи живы для
+      отчётности, но обезличены. Audit `account.delete`.
+- [x] Subscription URL формат `${origin}/api/sub/<token>` уже корректный — Phase 10
+      поднимет серверный эндпоинт. QR работает сразу (QRCodeSVG из qrcode.react).
+- [x] Toast'ы (sonner) сами подхватывают тему из ThemeProvider (light/dark).
+- [x] Email-enumeration mitigations сохранены и в UI: forgot-password всегда
+      показывает success-state, register не выдаёт «email already used».
+
 ## Этап 6 — Frontend каркас
 
 - [x] React 18 + TS + Vite + Tailwind 3 + Radix UI + Framer Motion + i18next

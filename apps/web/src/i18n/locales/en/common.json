@@ -8,9 +8,158 @@
     "guides": "Guides",
     "lk": "Dashboard",
     "login": "Sign in",
+    "logout": "Sign out",
     "register": "Sign up",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "forms": {
+    "fields": {
+      "email": "Email",
+      "password": "Password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password"
+    },
+    "hints": {
+      "passwordMin": "At least 10 characters."
+    },
+    "errors": {
+      "required": "This field is required",
+      "email": "Enter a valid email",
+      "passwordMin": "Password must be at least 10 characters",
+      "passwordMax": "Password is too long",
+      "passwordMismatch": "Passwords don't match",
+      "passwordSame": "New password must differ from the current one",
+      "consentRequired": "Consent is required to register",
+      "captcha": "Confirm you are not a robot"
+    },
+    "captcha": {
+      "devNote": "DEV mode, production uses Yandex SmartCaptcha"
+    }
+  },
+  "auth": {
+    "links": {
+      "forgot": "Forgot password?",
+      "toRegister": "Create an account",
+      "toLogin": "Already have an account? Sign in"
+    },
+    "actions": {
+      "signIn": "Sign in",
+      "signUp": "Create account",
+      "sendResetLink": "Send reset link",
+      "setPassword": "Set new password",
+      "toLogin": "Go to sign in"
+    },
+    "register": {
+      "consentPrefix": "I accept",
+      "consentConnector": "and"
+    },
+    "forgot": {
+      "sent": "If this email is registered, we've sent a reset link. Please check your inbox."
+    },
+    "verify": {
+      "inProgress": "Verifying your email…",
+      "ok": "Email verified. You can sign in now.",
+      "failed": "Couldn't verify your email."
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "emailNotVerified": "Please verify your email first — we've sent you a link",
+      "missingResetToken": "The link is invalid or has expired. Request a new reset.",
+      "missingVerifyToken": "Invalid link."
+    },
+    "toast": {
+      "welcomeBack": "Welcome back, {{email}}",
+      "registered": "Almost there",
+      "checkInbox": "We've sent a confirmation email to {{email}}. Open it and click the link.",
+      "passwordChanged": "Password updated",
+      "relogin": "Sign in with the new password."
+    }
+  },
+  "lk": {
+    "signedInAs": "Signed in as",
+    "nav": {
+      "dashboard": "Subscription",
+      "payments": "Payments",
+      "settings": "Settings"
+    },
+    "toast": {
+      "loggedOut": "You're signed out",
+      "subTokenRotated": "Subscription link rotated",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy"
+    },
+    "dashboard": {
+      "title": "My subscription",
+      "subtitle": "Subscription URL to import into any VLESS client.",
+      "noSub": {
+        "title": "No active subscription",
+        "body": "Pick a plan — after payment the subscription activates automatically.",
+        "cta": "See pricing"
+      },
+      "stats": {
+        "plan": "Plan",
+        "endAt": "Valid until",
+        "daysLeft": "Days left: {{count}}",
+        "traffic": "Traffic",
+        "limit": "limit"
+      },
+      "link": {
+        "title": "Subscription URL",
+        "subtitle": "Copy the URL into your client app or scan the QR.",
+        "copy": "Copy",
+        "rotate": "Rotate link",
+        "lastRotated": "Last rotated: {{date}}",
+        "phase10Note": "Server-side `/api/sub/<token>` lands in Phase 10. The URL is correct already, but the client can't fetch it yet."
+      }
+    },
+    "payments": {
+      "title": "Payment history",
+      "subtitle": "All your transactions via YooKassa.",
+      "empty": "No payments yet.",
+      "cols": {
+        "date": "Date",
+        "amount": "Amount",
+        "status": "Status",
+        "receipt": "Receipt"
+      },
+      "status": {
+        "pending": "Pending",
+        "waiting_for_capture": "Awaiting capture",
+        "succeeded": "Paid",
+        "canceled": "Canceled"
+      },
+      "receipt": {
+        "sent": "Sent",
+        "notYet": "—"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Account, password and deletion.",
+      "account": {
+        "title": "Account",
+        "email": "Email",
+        "role": "Role",
+        "emailVerified": "Email verified",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "password": {
+        "title": "Change password",
+        "body": "All sessions will be logged out — you'll need to sign in again.",
+        "cta": "Change password"
+      },
+      "delete": {
+        "title": "Delete account",
+        "body": "Right to be forgotten under 152-FZ. PD will be anonymized, active subscriptions stop working, refresh tokens revoked. Financial records are kept anonymized (reporting requirement).",
+        "typeDelete": "Type DELETE to confirm",
+        "typeDeleteError": "Type the word DELETE in uppercase",
+        "cta": "Delete account",
+        "toastDone": "Account deleted. Goodbye."
+      }
+    }
   },
   "footer": {
     "navTitle": "Navigation",
@@ -198,16 +347,14 @@
       }
     },
     "auth": {
-      "login": { "title": "Sign in", "stubNote": "Form ships in Phase 8." },
-      "register": {
-        "title": "Sign up",
-        "stubNote": "Form with CAPTCHA + PD consent — Phase 8."
+      "login": { "title": "Sign in", "subtitle": "Sign in to your dashboard." },
+      "register": { "title": "Sign up", "subtitle": "Create an account in 30 seconds." },
+      "verify": { "title": "Email verification" },
+      "forgot": {
+        "title": "Reset password",
+        "subtitle": "Enter your email — we'll send a recovery link."
       },
-      "verify": {
-        "title": "Email verification",
-        "stubNote": "Link from email lands here; token validated by API (Phase 3 done)."
-      },
-      "reset": { "title": "Reset password", "stubNote": "Form ships in Phase 8." }
+      "reset": { "title": "New password", "subtitle": "Set a new password for your account." }
     },
     "lk": {
       "title": "Dashboard",

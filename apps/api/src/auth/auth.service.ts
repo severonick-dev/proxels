@@ -13,6 +13,7 @@ import type { User } from '@prisma/client';
 import { CaptchaService } from '../captcha/captcha.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { UsersService } from '../users/users.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { generateSecureToken, TokensService, type IssuedRefresh } from './tokens.service.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import type { LoginDto } from './dto/login.dto.js';
@@ -47,6 +48,7 @@ export class AuthService {
     private readonly tokens: TokensService,
     private readonly captcha: CaptchaService,
     private readonly mail: MailService,
+    private readonly audit: AuditService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -187,6 +189,55 @@ export class AuthService {
     // После смены пароля — отзываем все refresh-токены (вынудим перелогиниться).
     await this.tokens.revokeAllForUser(user.id, 'forced');
     return { ok: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Аутентифицированные действия в ЛК: смена пароля, удаление аккаунта
+  // ---------------------------------------------------------------------------
+
+  async changePassword(
+    userId: string,
+    current: string,
+    next: string,
+    ctx: ClientCtx,
+  ): Promise<{ ok: true }> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    const ok = await argon2.verify(user.passwordHash, current);
+    if (!ok) throw new UnauthorizedException('Current password is incorrect');
+    if (current === next) {
+      throw new BadRequestException('New password must differ from the current one');
+    }
+    const passwordHash = await argon2.hash(next, ARGON2_OPTS);
+    await this.users.applyNewPassword(user.id, passwordHash);
+    await this.tokens.revokeAllForUser(user.id, 'forced');
+    await this.audit.record({
+      action: 'auth.change-password',
+      actorId: user.id,
+      ip: ctx.ip,
+      meta: { userId: user.id },
+    });
+    return { ok: true };
+  }
+
+  /**
+   * Удаление аккаунта = право на забвение (152-ФЗ).
+   * Анонимизируем ПДн в User, отзываем все refresh-токены.
+   * Финансовые записи остаются (нужны для отчётности), но не привязаны к настоящему email.
+   * Caller (контроллер) ОБЯЗАН затем очистить refresh-cookie у клиента.
+   */
+  async deleteAccount(userId: string, currentPassword: string, ctx: ClientCtx): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    const ok = await argon2.verify(user.passwordHash, currentPassword);
+    if (!ok) throw new UnauthorizedException('Current password is incorrect');
+    await this.users.anonymize(user.id);
+    await this.audit.record({
+      action: 'account.delete',
+      actorId: user.id,
+      ip: ctx.ip,
+      meta: { userId: user.id },
+    });
   }
 
   // ---------------------------------------------------------------------------
