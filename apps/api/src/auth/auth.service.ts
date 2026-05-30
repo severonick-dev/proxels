@@ -14,6 +14,7 @@ import { CaptchaService } from '../captcha/captcha.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { UsersService } from '../users/users.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { TwoFactorService } from './twofa/twofa.service.js';
 import { generateSecureToken, TokensService, type IssuedRefresh } from './tokens.service.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import type { LoginDto } from './dto/login.dto.js';
@@ -49,6 +50,7 @@ export class AuthService {
     private readonly captcha: CaptchaService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly twofa: TwoFactorService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -134,6 +136,20 @@ export class AuthService {
 
     if (!user.emailVerified) {
       throw new ForbiddenException('Email not verified');
+    }
+
+    // 2FA enforcement: для админов с включенной TOTP — обязателен код.
+    // Если код не прислали — возвращаем спец-ошибку, чтобы фронт показал поле totp.
+    if (user.totpSecret && user.role === 'admin') {
+      if (!dto.totpCode) {
+        throw new UnauthorizedException({
+          message: 'TOTP required',
+          requiresTotp: true,
+        });
+      }
+      if (!this.twofa.verifyCode(user.totpSecret, dto.totpCode)) {
+        throw new UnauthorizedException('Invalid TOTP code');
+      }
     }
 
     const accessToken = this.tokens.issueAccessToken(user);

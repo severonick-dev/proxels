@@ -258,3 +258,20 @@ model LegalDoc {
   @@unique([slug, version])
   @@index([slug, publishedAt])
 }
+
+/// Гайды по приложениям-клиентам (Nekobox / Hiddify / V2RayTun / ...).
+/// Редактируется из админки. Контент — markdown.
+model Guide {
+  id          String   @id @default(cuid())
+  slug        String   @unique // "nekobox" | "hiddify" | "v2raytun" | ...
+  title       String
+  /// Платформы — для UI карточки (Android / iOS / Windows / macOS).
+  platforms   String
+  contentMd   String
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+}

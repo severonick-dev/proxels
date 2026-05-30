@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CreditCard, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { CreditCard, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { apiRequest } from '@/lib/api';
@@ -17,6 +17,7 @@ interface LkNavItem {
 const ITEMS: LkNavItem[] = [
   { to: '/lk', end: true, labelKey: 'lk.nav.dashboard', Icon: LayoutDashboard },
   { to: '/lk/payments', labelKey: 'lk.nav.payments', Icon: CreditCard },
+  { to: '/lk/security', labelKey: 'lk.nav.security', Icon: ShieldCheck },
   { to: '/lk/settings', labelKey: 'lk.nav.settings', Icon: Settings },
 ];
 

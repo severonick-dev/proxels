@@ -70,6 +70,11 @@
       "missingResetToken": "Ссылка некорректна или устарела. Запросите сброс заново.",
       "missingVerifyToken": "Ссылка некорректна."
     },
+    "totp": {
+      "required": "Введите код из приложения-аутентификатора",
+      "invalid": "Неверный код 2FA",
+      "hint": "Откройте Google Authenticator / Authy и введите 6-значный код."
+    },
     "toast": {
       "welcomeBack": "С возвращением, {{email}}",
       "registered": "Регистрация почти готова",
@@ -83,7 +88,29 @@
     "nav": {
       "dashboard": "Подписка",
       "payments": "Платежи",
+      "security": "Безопасность",
       "settings": "Настройки"
+    },
+    "security": {
+      "title": "Безопасность",
+      "subtitle": "Двухфакторная аутентификация и параметры доступа.",
+      "totp": {
+        "title": "Двухфакторная аутентификация (TOTP)",
+        "body": "Дополнительная защита аккаунта: одноразовый код из приложения-аутентификатора при каждом входе.",
+        "on": "Включена",
+        "off": "Отключена",
+        "enable": "Включить 2FA",
+        "disable": "Отключить 2FA",
+        "confirm": "Подтвердить",
+        "codeLabel": "Код из приложения",
+        "scanInstruction": "Откройте Google Authenticator / Authy / 1Password и отсканируйте QR. После этого введите 6-значный код:",
+        "secret": "Или введите вручную",
+        "secretHint": "Сохраните этот код в безопасном месте — он понадобится при переносе на новый телефон.",
+        "toast": {
+          "enabled": "2FA включена",
+          "disabled": "2FA отключена"
+        }
+      }
     },
     "toast": {
       "loggedOut": "Вы вышли из аккаунта",
@@ -111,8 +138,7 @@
         "subtitle": "Скопируйте URL в приложение или отсканируйте QR.",
         "copy": "Копировать",
         "rotate": "Обновить ссылку",
-        "lastRotated": "Последняя ротация: {{date}}",
-        "phase10Note": "Серверная часть `/api/sub/<token>` подключается на Этапе 10. До этого ссылка корректна, но клиент пока ничего не получит."
+        "lastRotated": "Последняя ротация: {{date}}"
       }
     },
     "payments": {
@@ -203,6 +229,108 @@
     },
     "toast": {
       "devSimulated": "DEV: оплата засимулирована, подписка активна"
+    }
+  },
+  "admin": {
+    "panelLabel": "Админ-панель",
+    "nav": {
+      "overview": "Обзор",
+      "users": "Пользователи",
+      "payments": "Платежи",
+      "nodes": "Ноды",
+      "guides": "Гайды",
+      "legal": "Юр.документы",
+      "audit": "Аудит"
+    },
+    "overview": {
+      "title": "Обзор",
+      "usersTotal": "Всего пользователей",
+      "nodesOnline": "Ноды online",
+      "auditTotal": "Записей в аудите",
+      "recentAudit": "Последние действия"
+    },
+    "users": {
+      "title": "Пользователи",
+      "subtitle": "Всего: {{count}}",
+      "searchPlaceholder": "Поиск по email…",
+      "cols": {
+        "role": "Роль",
+        "verified": "Email",
+        "subs": "Подписки",
+        "payments": "Платежи",
+        "created": "Создан",
+        "actions": "Действия"
+      },
+      "actions": {
+        "revokeSessions": "Отозвать все сессии",
+        "forceVerify": "Подтвердить email",
+        "delete": "Удалить (анонимизировать)"
+      },
+      "confirmDelete": "Удалить аккаунт {{email}}? ПДн будут анонимизированы.",
+      "toast": {
+        "sessionsRevoked": "Сессии отозваны",
+        "verified": "Email подтверждён",
+        "deleted": "Аккаунт удалён"
+      },
+      "pageInfo": "{{from}}–{{to}} из {{total}}"
+    },
+    "payments": {
+      "title": "Платежи",
+      "subtitle": "Данные из аудит-лога. Полная таблица с фильтрами — следующая итерация.",
+      "cols": {
+        "amount": "Сумма",
+        "id": "Payment ID"
+      }
+    },
+    "nodes": {
+      "title": "Ноды",
+      "subtitle": "Online: {{online}} / {{total}}. Health-check автоматический, обновление каждые 10 сек.",
+      "subtitleLoading": "Загрузка…",
+      "cols": {
+        "name": "Имя",
+        "host": "Host",
+        "status": "Статус",
+        "weight": "Вес",
+        "health": "Проверки",
+        "lastProbe": "Последняя проверка"
+      },
+      "crudNote": "Добавление/редактирование/удаление нод — через REST: POST /api/admin/nodes, PATCH /api/admin/nodes/:id, DELETE /api/admin/nodes/:id. UI-формы дополним в следующей итерации."
+    },
+    "guides": {
+      "title": "Гайды",
+      "subtitle": "Список гайдов. Полный markdown-редактор — следующая итерация.",
+      "cols": {
+        "title": "Название",
+        "platforms": "Платформы",
+        "sort": "Sort",
+        "published": "Опубликован",
+        "preview": "Превью"
+      },
+      "editorNote": "CRUD через REST: GET/POST/PATCH/DELETE /api/admin/guides. Inline-редактор markdown подключим в следующей итерации (нужен MDXEditor / SimpleMDE)."
+    },
+    "legal": {
+      "title": "Юр.документы",
+      "subtitle": "Версии privacy/offer/cookie.",
+      "cols": {
+        "title": "Название",
+        "version": "Версия",
+        "published": "Опубликован",
+        "updated": "Обновлён",
+        "preview": "Превью"
+      },
+      "preview": "Открыть",
+      "editorNote": "Создание/правка через REST: POST /api/admin/legal, PATCH /api/admin/legal/:id. Inline-редактор подключим в следующей итерации."
+    },
+    "audit": {
+      "title": "Аудит",
+      "subtitle": "Всего записей: {{count}}",
+      "actionFilter": "Фильтр по action (например plan., admin., subscription.)",
+      "cols": {
+        "when": "Когда",
+        "action": "Action",
+        "actor": "Actor"
+      },
+      "pageInfo": "{{from}}–{{to}} из {{total}}"
     }
   },
   "cookieBanner": {
@@ -365,7 +493,10 @@
     "guides": {
       "title": "Гайды",
       "subtitle": "Пошаговая настройка Nekobox, Hiddify и V2RayTun.",
-      "stubNote": "Контент гайдов добавим на Этапе 12."
+      "empty": "Гайдов пока нет.",
+      "open": "Открыть",
+      "backToList": "Ко всем гайдам",
+      "notFound": "Гайд не найден или больше не публикуется."
     },
     "legal": {
       "privacy": {

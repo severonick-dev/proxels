@@ -187,10 +187,6 @@ function ActiveSubscription({ sub, locale, onRotate, rotating, t }: ActiveProps)
             <QRCodeSVG value={subUrl} size={144} marginSize={0} level="M" />
           </div>
         </div>
-
-        <p className="mt-4 rounded-md border border-dashed border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-          {t('lk.dashboard.link.phase10Note')}
-        </p>
       </div>
     </div>
   );

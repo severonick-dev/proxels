@@ -1,10 +1,12 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { LkLayout } from '@/components/layout/lk-layout';
+import { AdminLayout } from '@/components/layout/admin-layout';
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import HomePage from '@/pages/home';
 import PricingPage from '@/pages/pricing';
-import GuidesPage from '@/pages/guides';
+import GuidesIndexPage from '@/pages/guides/index';
+import GuideDetailPage from '@/pages/guides/detail';
 import PrivacyPage from '@/pages/legal/privacy';
 import OfferPage from '@/pages/legal/offer';
 import CookiesPage from '@/pages/legal/cookies';
@@ -16,7 +18,14 @@ import ResetPasswordPage from '@/pages/auth/reset-password';
 import LkDashboardPage from '@/pages/lk/dashboard';
 import LkPaymentsPage from '@/pages/lk/payments';
 import LkSettingsPage from '@/pages/lk/settings';
-import AdminDashboardPage from '@/pages/admin/dashboard';
+import LkSecurityPage from '@/pages/lk/security';
+import AdminOverviewPage from '@/pages/admin/overview';
+import AdminUsersPage from '@/pages/admin/users';
+import AdminPaymentsPage from '@/pages/admin/payments';
+import AdminNodesPage from '@/pages/admin/nodes';
+import AdminGuidesPage from '@/pages/admin/guides';
+import AdminLegalPage from '@/pages/admin/legal';
+import AdminAuditPage from '@/pages/admin/audit';
 import NotFoundPage from '@/pages/not-found';
 
 const routes: RouteObject[] = [
@@ -25,19 +34,20 @@ const routes: RouteObject[] = [
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/pricing', element: <PricingPage /> },
-      { path: '/guides', element: <GuidesPage /> },
+      { path: '/guides', element: <GuidesIndexPage /> },
+      { path: '/guides/:slug', element: <GuideDetailPage /> },
       { path: '/legal/privacy', element: <PrivacyPage /> },
       { path: '/legal/offer', element: <OfferPage /> },
       { path: '/legal/cookies', element: <CookiesPage /> },
 
-      // Auth (внутри публичного layout — header/footer как обычно)
+      // Auth
       { path: '/auth/login', element: <LoginPage /> },
       { path: '/auth/register', element: <RegisterPage /> },
       { path: '/auth/verify-email', element: <VerifyEmailPage /> },
       { path: '/auth/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/auth/reset-password', element: <ResetPasswordPage /> },
 
-      // ЛК (внутри публичного layout + собственный side-nav через LkLayout)
+      // ЛК
       {
         element: (
           <ProtectedRoute>
@@ -47,18 +57,27 @@ const routes: RouteObject[] = [
         children: [
           { path: '/lk', element: <LkDashboardPage /> },
           { path: '/lk/payments', element: <LkPaymentsPage /> },
+          { path: '/lk/security', element: <LkSecurityPage /> },
           { path: '/lk/settings', element: <LkSettingsPage /> },
         ],
       },
 
-      // Админка — только для роли admin (полноценная админ-панель — Этап 12).
+      // Админка — только для роли admin
       {
-        path: '/admin',
         element: (
           <ProtectedRoute requireRole="admin">
-            <AdminDashboardPage />
+            <AdminLayout />
           </ProtectedRoute>
         ),
+        children: [
+          { path: '/admin', element: <AdminOverviewPage /> },
+          { path: '/admin/users', element: <AdminUsersPage /> },
+          { path: '/admin/payments', element: <AdminPaymentsPage /> },
+          { path: '/admin/nodes', element: <AdminNodesPage /> },
+          { path: '/admin/guides', element: <AdminGuidesPage /> },
+          { path: '/admin/legal', element: <AdminLegalPage /> },
+          { path: '/admin/audit', element: <AdminAuditPage /> },
+        ],
       },
 
       { path: '*', element: <NotFoundPage /> },

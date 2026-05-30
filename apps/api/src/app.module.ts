@@ -26,6 +26,8 @@ import { PublicConfigModule } from './public-config/public-config.module.js';
 import { XrayModule } from './xray/xray.module.js';
 import { SubModule } from './sub/sub.module.js';
 import { HealthChecksModule } from './health-checks/health-checks.module.js';
+import { GuidesModule } from './guides/guides.module.js';
+import { AdminModule } from './admin/admin.module.js';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { HealthChecksModule } from './health-checks/health-checks.module.js';
     SubModule,
     LegalModule,
     PublicConfigModule,
+    GuidesModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [

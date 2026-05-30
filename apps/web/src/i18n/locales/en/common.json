@@ -70,6 +70,11 @@
       "missingResetToken": "The link is invalid or has expired. Request a new reset.",
       "missingVerifyToken": "Invalid link."
     },
+    "totp": {
+      "required": "Enter the code from your authenticator app",
+      "invalid": "Invalid 2FA code",
+      "hint": "Open Google Authenticator / Authy and enter the 6-digit code."
+    },
     "toast": {
       "welcomeBack": "Welcome back, {{email}}",
       "registered": "Almost there",
@@ -83,7 +88,29 @@
     "nav": {
       "dashboard": "Subscription",
       "payments": "Payments",
+      "security": "Security",
       "settings": "Settings"
+    },
+    "security": {
+      "title": "Security",
+      "subtitle": "Two-factor authentication and access settings.",
+      "totp": {
+        "title": "Two-factor authentication (TOTP)",
+        "body": "Extra account protection: a one-time code from your authenticator app on every sign-in.",
+        "on": "Enabled",
+        "off": "Disabled",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "confirm": "Confirm",
+        "codeLabel": "Code from app",
+        "scanInstruction": "Open Google Authenticator / Authy / 1Password and scan the QR. Then enter the 6-digit code:",
+        "secret": "Or enter manually",
+        "secretHint": "Save this code somewhere safe — you'll need it when switching to a new phone.",
+        "toast": {
+          "enabled": "2FA enabled",
+          "disabled": "2FA disabled"
+        }
+      }
     },
     "toast": {
       "loggedOut": "You're signed out",
@@ -111,8 +138,7 @@
         "subtitle": "Copy the URL into your client app or scan the QR.",
         "copy": "Copy",
         "rotate": "Rotate link",
-        "lastRotated": "Last rotated: {{date}}",
-        "phase10Note": "Server-side `/api/sub/<token>` lands in Phase 10. The URL is correct already, but the client can't fetch it yet."
+        "lastRotated": "Last rotated: {{date}}"
       }
     },
     "payments": {
@@ -183,6 +209,108 @@
     "version": "Version: {{version}}",
     "publishedAt": "published {{date}}",
     "disclaimer": "This document is a working template. Will be reviewed by a lawyer before public launch."
+  },
+  "admin": {
+    "panelLabel": "Admin panel",
+    "nav": {
+      "overview": "Overview",
+      "users": "Users",
+      "payments": "Payments",
+      "nodes": "Nodes",
+      "guides": "Guides",
+      "legal": "Legal docs",
+      "audit": "Audit"
+    },
+    "overview": {
+      "title": "Overview",
+      "usersTotal": "Total users",
+      "nodesOnline": "Nodes online",
+      "auditTotal": "Audit entries",
+      "recentAudit": "Recent activity"
+    },
+    "users": {
+      "title": "Users",
+      "subtitle": "Total: {{count}}",
+      "searchPlaceholder": "Search by email…",
+      "cols": {
+        "role": "Role",
+        "verified": "Email",
+        "subs": "Subs",
+        "payments": "Pmts",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "actions": {
+        "revokeSessions": "Revoke all sessions",
+        "forceVerify": "Verify email",
+        "delete": "Delete (anonymize)"
+      },
+      "confirmDelete": "Delete account {{email}}? PD will be anonymized.",
+      "toast": {
+        "sessionsRevoked": "Sessions revoked",
+        "verified": "Email verified",
+        "deleted": "Account deleted"
+      },
+      "pageInfo": "{{from}}–{{to}} of {{total}}"
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Data from audit log. Full filterable table — next iteration.",
+      "cols": {
+        "amount": "Amount",
+        "id": "Payment ID"
+      }
+    },
+    "nodes": {
+      "title": "Nodes",
+      "subtitle": "Online: {{online}} / {{total}}. Auto health-check refreshes every 10s.",
+      "subtitleLoading": "Loading…",
+      "cols": {
+        "name": "Name",
+        "host": "Host",
+        "status": "Status",
+        "weight": "Weight",
+        "health": "Checks",
+        "lastProbe": "Last probe"
+      },
+      "crudNote": "Add/edit/delete via REST: POST /api/admin/nodes, PATCH /api/admin/nodes/:id, DELETE /api/admin/nodes/:id. UI forms — next iteration."
+    },
+    "guides": {
+      "title": "Guides",
+      "subtitle": "Guides list. Full markdown editor — next iteration.",
+      "cols": {
+        "title": "Title",
+        "platforms": "Platforms",
+        "sort": "Sort",
+        "published": "Published",
+        "preview": "Preview"
+      },
+      "editorNote": "CRUD via REST: GET/POST/PATCH/DELETE /api/admin/guides. Inline markdown editor — next iteration (needs MDXEditor / SimpleMDE)."
+    },
+    "legal": {
+      "title": "Legal docs",
+      "subtitle": "Privacy / offer / cookie versions.",
+      "cols": {
+        "title": "Title",
+        "version": "Version",
+        "published": "Published",
+        "updated": "Updated",
+        "preview": "Preview"
+      },
+      "preview": "Open",
+      "editorNote": "Create/edit via REST: POST /api/admin/legal, PATCH /api/admin/legal/:id. Inline editor — next iteration."
+    },
+    "audit": {
+      "title": "Audit",
+      "subtitle": "Total entries: {{count}}",
+      "actionFilter": "Filter by action prefix (e.g. plan., admin., subscription.)",
+      "cols": {
+        "when": "When",
+        "action": "Action",
+        "actor": "Actor"
+      },
+      "pageInfo": "{{from}}–{{to}} of {{total}}"
+    }
   },
   "purchase": {
     "title": "Subscribe to «{{plan}}»",
@@ -363,7 +491,10 @@
     "guides": {
       "title": "Guides",
       "subtitle": "Step-by-step setup for Nekobox, Hiddify, V2RayTun.",
-      "stubNote": "Guide content will land in Phase 12."
+      "empty": "No guides yet.",
+      "open": "Open",
+      "backToList": "Back to guides",
+      "notFound": "Guide not found or no longer published."
     },
     "legal": {
       "privacy": {

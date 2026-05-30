@@ -327,60 +327,114 @@ GitHub: https://github.com/severonick-dev/proxels
   (`dev-online-1`), мёртвые исключены — failover работает.
 - `/api/admin/nodes/health` показывает onlineCount=1, детали со счётчиками.
 
-## 🔜 Этап 12 — Гайды + АДМИНКА
+## ✅ Этап 12 — Гайды + Админка + 2FA TOTP
 
-**Гайды** (см. §9 спека):
+**Prisma:**
 
-- `/guides` + детальные страницы Nekobox/Hiddify/V2RayTun.
-- Контент markdown в БД, редактируется из админки.
+- Новая модель `Guide(id, slug @unique, title, platforms, contentMd, sortOrder,
+isPublished, createdAt, updatedAt)` + миграция `add_guide`.
+- `prisma/seed-guides.ts` — идемпотентный seed 3 гайдов с реальным markdown:
+  Nekobox (Android), Hiddify (iOS), V2RayTun (Windows/macOS).
+- `prisma/seed.ts` вызывает `seedGuides()` после legal-docs.
 
-**Админка** (см. §10 спека + дополнения из этого этапа):
+**Backend — Гайды:**
 
-UI и эндпоинты для:
+- `apps/api/src/guides/`:
+  - `GuidesService`: `listPublished()` сорт по sortOrder, `getBySlug()` 404 для
+    неопубликованных, плюс admin-helpers (listAll, findById, create, update, remove).
+  - `GuidesController`: public `GET /api/guides`, `GET /api/guides/:slug`,
+    throttle 60/60s. **Без аутентификации** — гайды нужны и анонимам.
+  - `GuidesModule` экспортирует сервис → используется AdminModule.
 
-- **Пользователи**:
-  - Список (email, role, emailVerified, createdAt, кол-во подписок, итого ₽).
-  - Поиск, фильтр по статусу.
-  - Просмотр конкретного — все его подписки, все платежи, AuditLog действий.
-  - Force-actions: revoke all sessions, force-verify email, force-delete (с подтверждением).
+**Backend — 2FA TOTP:**
 
-- **Подписки**:
-  - Список с фильтрами (status, plan, истекает скоро).
-  - Просмотр конкретной — XrayClient'ы на нодах.
-  - Force-actions: cancel, extend на N дней (по жалобе/гудвилл).
+- `apps/api/src/auth/twofa/`:
+  - `TwoFactorService` поверх `otplib` (window=1, RFC-совместимо). API:
+    `beginSetup(userId, email)` → `{ secret, otpauthUrl }`, секрет лежит в
+    Redis (`proxels:2fa:pending:<userId>`, TTL 10m) и **не сохраняется в БД до подтверждения**.
+    `confirmSetup(userId, code)` — verify первого кода, копирует секрет в `User.totpSecret`.
+    `disable(userId)` — clear `totpSecret`. `verifyCode(secret, code)`.
+  - `TwoFactorController` под `JwtAccessGuard`:
+    - `GET /api/auth/2fa/status`
+    - `POST /api/auth/2fa/setup` (1/60s)
+    - `POST /api/auth/2fa/confirm` (10/60s) — DTO с code 6 цифр
+    - `POST /api/auth/2fa/disable` (5/60s) — требует пароль + код (argon2.verify).
+- `AuthService.login` — при `user.totpSecret && user.role === 'admin'` требует
+  `totpCode` в DTO; на отсутствие → `401 { requiresTotp: true }`, на неверный → 401.
+- `LoginDto` расширен optional `totpCode` (6 цифр).
+- `AuthModule` — экспорт `TokensService` (нужен AdminModule для revoke-sessions).
 
-- **Платежи**:
-  - Список с фильтрами (status, amount range, date range).
-  - Просмотр — связанный subscription, raw YooKassa metadata (только для admin!).
-  - Refund (через YooKassa API) — если технически возможно.
+**Backend — Админ-эндпоинты:**
 
-- **Тарифы** (Plan):
-  - Уже есть CRUD в `/api/admin/plans` (Этап 4). UI добавить.
+- `apps/api/src/admin/`:
+  - `admin-users.controller.ts`:
+    - `GET /api/admin/users?q&take&skip` — список + total с email-поиском.
+      `twofaEnabled = totpSecret != null` (сам секрет НИКОГДА не возвращаем).
+    - `GET /api/admin/users/:id` — детали (subs, payments, recent audit).
+    - `POST /:id/revoke-sessions` — отзыв всех refresh-токенов через TokensService.
+    - `POST /:id/force-verify` — выставить emailVerifiedAt.
+    - `DELETE /:id` — анонимизация (152-ФЗ право на забвение). Self-delete блокирован.
+  - `admin-audit.controller.ts` — `GET /api/admin/audit?action&actorId&take&skip`.
+  - `admin-legal.controller.ts` — `GET/POST/PATCH /api/admin/legal[/:id]`,
+    публикация через `publishedAt` toggle.
+  - `admin-nodes-crud.controller.ts` — write-операции нод (read в health-checks/).
+    POST/PATCH/DELETE с DTO + throttle на создание. Soft-delete (isActive=false).
+  - `admin-guides.controller.ts` — full CRUD гайдов, slug-валидация kebab-case.
+- Все контроллеры под `@UseGuards(JwtAccessGuard, RolesGuard) @Roles('admin')`,
+  каждое write-действие пишет AuditLog с `actorId + ip + meta`.
 
-- **Промокоды** (Promo) — НОВОЕ, см. ниже:
-  - CRUD.
-  - Применение к цене при создании платежа.
+**Frontend — Публичные гайды:**
 
-- **Ноды** (Xray VPS):
-  - Список с last health-check + текущим статусом.
-  - Add/update/disable.
-  - Reload config / re-sync clients.
+- `components/markdown.tsx` — общий react-markdown renderer (унификация с legal).
+- `pages/guides/index.tsx` — grid карточек, `Link to="/guides/:slug"`.
+- `pages/guides/detail.tsx` — markdown + breadcrumb JSON-LD + back-link.
 
-- **Юр. документы** (LegalDoc):
-  - Список с slug+version, текущая опубликованная отмечается.
-  - Markdown-редактор. Bump version + publish.
+**Frontend — 2FA UI:**
 
-- **AuditLog**:
-  - Просмотр всех действий с фильтрами (actor, action, date range).
-  - Экспорт CSV.
+- `pages/lk/security.tsx` — пошаговый wizard:
+  - Статус (enabled/disabled) из `/api/auth/2fa/status`.
+  - Setup → показывает QR (`qrcode.react`) + раскрываемый secret для ручного ввода.
+  - Confirm с 6-значным кодом.
+  - Disable — требует password + код.
+- `pages/auth/login.tsx` — state `needsTotp`. Если backend вернул
+  `requiresTotp: true`, форма показывает поле TOTP-кода без сброса полей.
 
-**Безопасность админки (§4b, обязательно):**
+**Frontend — Админка:**
 
-- Все эндпоинты `/api/admin/*` под `JwtAccessGuard + RolesGuard + @Roles('admin')`.
-- 2FA TOTP обязательна для admin при логине.
-- `ADMIN_IP_ALLOWLIST` middleware (опц.).
-- AuditLog на КАЖДОЕ admin-действие.
-- Frontend `/admin/*` под `<ProtectedRoute requireRole="admin">`.
+- `components/layout/admin-layout.tsx` — sidebar с навигацией (Overview, Users,
+  Payments, Nodes, Guides, Legal, Audit).
+- `pages/admin/`:
+  - `overview.tsx` — 3 stat cards + recent audit list. 15s refetch для nodes-health.
+  - `users.tsx` — таблица с email-поиском, role/verified/2FA badges,
+    действия (revoke sessions, force-verify, delete confirm).
+  - `audit.tsx` — таблица с фильтром по action, JSON-meta превью.
+  - `nodes.tsx` — read-only health view, 10s refetch.
+  - `payments.tsx` — выборка audit log с action=payment.\*.
+  - `guides.tsx`, `legal.tsx` — list-таблицы с editor-note (full inline editor → 13).
+- `components/layout/lk-layout.tsx` — добавлен nav-item `/lk/security`.
+- `router.tsx` переписан: `<ProtectedRoute requireRole="admin"><AdminLayout/></ProtectedRoute>`
+  оборачивает все `/admin/*` маршруты.
+
+**i18n:** добавлены `lk.nav.security`, `lk.security.*`, `auth.totp.*`, `admin.*`
+(panelLabel, nav, overview, users, payments, nodes, guides, legal, audit), `pages.guides.*`
+для ru+en. Удалён `lk.dashboard.link.phase10Note` (был stale).
+
+**Безопасность:**
+
+- Секрет 2FA не возвращается из admin API (только флаг `twofaEnabled`).
+- Pending secret в Redis TTL 10m — нельзя залочиться, если QR не отсканировался.
+- Login для admin без TOTP → 401 (не показывает «есть ли 2FA» прямым ответом —
+  фронт обрабатывает `requiresTotp: true`, но это после успешной верификации пароля).
+- Anonymize-user в админке — тот же путь что у self-delete (consistent privacy).
+
+**Smoke:**
+
+- API bootstrap: все Phase-12 контроллеры подняты (Guides, 2FA, AdminUsers,
+  AdminAudit, AdminLegal, AdminNodesCrud, AdminGuides).
+- `GET /api/guides` → 3 гайда из БД.
+- `GET /api/guides/nekobox` → 200.
+- `GET /api/admin/users` без auth → 401.
+- `GET /api/auth/2fa/status` без auth → 401.
 
 ## 🔜 Этап 12a — Промокоды (новое требование владельца)
 

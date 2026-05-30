@@ -311,12 +311,50 @@
 - [ ] Канал backend↔node защищён (mTLS или shared secret через приватную сеть).
 - [ ] Создан `docs/PRIVACY-ARCHITECTURE.md` с описанием, как именно обеспечен no-logs.
 
-## Этап 12 — Админка
+## Этап 12 — Гайды + Админка + 2FA TOTP
 
-- [ ] Роль `admin` — отдельный логин с обязательной 2FA (TOTP).
-- [ ] `ADMIN_IP_ALLOWLIST` поддерживается middleware'ом.
-- [ ] Все админские действия логируются в `AuditLog` (actor, action, meta, IP, timestamp).
-- [ ] В админке нет ни одного эндпоинта, возвращающего историю URL/доменов клиента.
+- [x] **2FA TOTP** (otplib, window=1):
+      `POST /api/auth/2fa/setup` создаёт секрет и кладёт его в Redis
+      (`proxels:2fa:pending:<userId>`, TTL 10m) — в БД секрет попадает
+      ТОЛЬКО после успешного `confirm`. Это предотвращает self-lockout,
+      если QR-код не отсканирован.
+- [x] `POST /api/auth/2fa/disable` требует и пароль (argon2.verify), и
+      текущий TOTP-код — мало просто украсть сессию.
+- [x] **TOTP обязателен для admin-логина**: `AuthService.login` бросает 401
+      `{ requiresTotp: true }` если у user.role==='admin' есть `totpSecret`
+      и `loginDto.totpCode` отсутствует. Невалидный код → 401 `'Invalid TOTP code'`.
+      Тайминг-safe сравнение через `otplib.authenticator.verify`.
+- [x] Секрет 2FA **никогда** не возвращается из админ API — только флаг
+      `twofaEnabled: u.totpSecret != null` в `GET /api/admin/users`.
+- [x] Все эндпоинты `/api/admin/*` под `JwtAccessGuard + RolesGuard + @Roles('admin')`.
+      Анонимный → 401, обычный user → 403 (verified для `/api/admin/users`
+      и `/api/auth/2fa/status`).
+- [x] Каждое write-действие админа пишется в `AuditLog` с `actorId + ip + meta`:
+      `admin.user.revoke-sessions`, `admin.user.force-verify`, `admin.user.delete`,
+      `admin.node.create/update/deactivate`, `admin.legal.*`, `admin.guide.*`.
+      В meta — только идентификаторы и список изменённых полей, не значения.
+- [x] **Self-delete protection**: admin не может удалить сам себя
+      (`/admin/users/:id` сравнивает с `req.user.id` → 400).
+- [x] Anonymize-user в админ API использует тот же `UsersService.anonymize`,
+      что и self-delete — никакой второй привилегированный путь.
+- [x] Markdown гайдов рендерится через `react-markdown` + `remark-gfm`,
+      без `dangerouslySetInnerHTML` (тот же XSS-safe подход, что у legal).
+- [x] Throttle на 2FA setup (1/60s — нельзя спамить), confirm (10/60s),
+      disable (5/60s); admin endpoints — under `Throttle({ default: 60/60s })`
+      или строже для create-операций (30/60s).
+- [x] `GET /api/admin/users` использует Prisma `select` + редактирует
+      `totpSecret` → boolean — секреты не утекают даже под `forbidNonWhitelisted`.
+- [x] Frontend `/admin/*` под `<ProtectedRoute requireRole="admin">`.
+      На `requireRole` mismatch → редирект на `/`.
+
+**Открытые TODO (на Этап 13 / прод-запуск):**
+
+- [ ] `ADMIN_IP_ALLOWLIST` middleware (опц.) — пока не реализован, кладём в Этап 13
+      вместе с nginx allowlist (выше уровень — отсекаем до Node).
+- [ ] CSV-экспорт AuditLog — UI-удобство, не блокер; добавим, когда юрист попросит
+      выгрузку для проверок.
+- [ ] Refund платежа через YooKassa API из админки — отдельный риск (нужны refund-creds);
+      пока ручной через ЛК YooKassa, отмеченный audit-логом.
 
 ## Этап 13 — Деплой
 
