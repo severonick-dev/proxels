@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Environment & secrets (NEVER commit)
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+*.pem
+*.key
+*.crt
+secrets/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+*~
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Prisma
+apps/api/prisma/migrations/dev.db*
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# Docker
+infra/docker/data/
+infra/docker/postgres-data/
+infra/docker/redis-data/
+
+# Local override files
+docker-compose.override.yml
+
+# Vite cache
+.vite/
+
+# VSCode (allow project-shared settings, ignore user-specific)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

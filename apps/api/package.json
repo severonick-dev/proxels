@@ -1,0 +1,19 @@
+{
+  "name": "@proxels/api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Backend (NestJS) — auth, billing, subscriptions, Xray node orchestration.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "echo 'api build will be configured in phase 2 (NestJS)'",
+    "dev": "echo 'api dev will be configured in phase 2 (NestJS)'",
+    "typecheck": "echo 'api typecheck will be configured in phase 2'",
+    "lint": "echo 'api lint will be configured in phase 2'"
+  },
+  "dependencies": {
+    "@proxels/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

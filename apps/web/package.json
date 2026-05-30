@@ -1,0 +1,19 @@
+{
+  "name": "@proxels/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Frontend (Vite + React + TS + Tailwind + shadcn) — лендинг, ЛК, гайды.",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'web build will be configured in phase 6 (Vite)'",
+    "dev": "echo 'web dev will be configured in phase 6 (Vite)'",
+    "typecheck": "echo 'web typecheck will be configured in phase 6'",
+    "lint": "echo 'web lint will be configured in phase 6'"
+  },
+  "dependencies": {
+    "@proxels/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

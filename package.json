@@ -1,0 +1,29 @@
+{
+  "name": "proxels",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Proxels — VPN-сервис на базе Xray (VLESS/Reality). Сайт, ЛК, оплата, автогенерация подписок.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./apps/* --filter=./packages/* run build",
+    "dev": "pnpm -r --parallel --filter=./apps/* run dev",
+    "dev:web": "pnpm --filter @proxels/web run dev",
+    "dev:api": "pnpm --filter @proxels/api run dev",
+    "lint": "pnpm -r run lint",
+    "lint:fix": "pnpm -r run lint:fix",
+    "typecheck": "pnpm -r run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\" --ignore-path .gitignore",
+    "clean": "pnpm -r exec rm -rf node_modules dist build .turbo && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}
