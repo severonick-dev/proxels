@@ -23,6 +23,8 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { LegalModule } from './legal/legal.module.js';
 import { PublicConfigModule } from './public-config/public-config.module.js';
+import { XrayModule } from './xray/xray.module.js';
+import { SubModule } from './sub/sub.module.js';
 
 @Module({
   imports: [
@@ -55,9 +57,11 @@ import { PublicConfigModule } from './public-config/public-config.module.js';
     AuditModule,
     YookassaModule,
     AuthModule,
+    XrayModule,
     PlansModule,
     SubscriptionsModule,
     PaymentsModule,
+    SubModule,
     LegalModule,
     PublicConfigModule,
     HealthModule,

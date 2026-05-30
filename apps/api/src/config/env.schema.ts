@@ -93,6 +93,8 @@ export const envSchema = z.object({
 
   // xray
   XRAY_NODE_API_TOKEN: z.string().min(16, 'XRAY_NODE_API_TOKEN must be >= 16 chars'),
+  /** Реализация клиента к нодам Xray. В dev — noop (ничего не делает). */
+  XRAY_CLIENT: z.enum(['noop', 'grpc']).default('noop'),
 });
 
 export type Env = z.infer<typeof envSchema>;

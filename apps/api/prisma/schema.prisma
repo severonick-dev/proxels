@@ -186,10 +186,14 @@ model Node {
   id          String     @id @default(cuid())
   name        String     @unique
   host        String
+  /// VLESS-порт инбаунда (по умолчанию 443 для маскировки под HTTPS).
+  port        Int        @default(443)
   country     String
   xrayApiAddr String // gRPC API адрес (host:port)
   publicKey   String // Reality public key
   shortId     String // Reality short_id
+  /// Reality SNI — домен, под который маскируется трафик (например www.microsoft.com).
+  sni         String     @default("www.microsoft.com")
   inboundTag  String     @default("vless-reality")
   status      NodeStatus @default(offline)
   weight      Int        @default(100)

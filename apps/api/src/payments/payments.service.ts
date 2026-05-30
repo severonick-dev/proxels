@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { YookassaService } from '../yookassa/yookassa.service.js';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
+import { XrayService } from '../xray/xray.service.js';
 import { EnvService } from '../config/env.service.js';
 import type { YookassaWebhookNotification } from '../yookassa/yookassa.types.js';
 
@@ -40,6 +41,7 @@ export class PaymentsService {
     private readonly audit: AuditService,
     private readonly yookassa: YookassaService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly xray: XrayService,
     private readonly env: EnvService,
   ) {}
 
@@ -224,6 +226,10 @@ export class PaymentsService {
           receiptSent: true,
         },
       });
+      // Раскатить подписку по живым нодам в той же транзакции.
+      // Если все ноды offline — `materializeForSubscription` ничего не создаст,
+      // а позже это сделает /api/sub/:token при первом обращении (lazy).
+      await this.xray.materializeForSubscription(sub.id, tx);
       return { sub, payment: refreshed };
     });
 
@@ -240,7 +246,7 @@ export class PaymentsService {
     });
     this.log.log(
       { paymentId: payment.id, subscriptionId: updated.sub.id },
-      'Payment succeeded → subscription issued/extended',
+      'Payment succeeded → subscription issued/extended/materialized',
     );
   }
 

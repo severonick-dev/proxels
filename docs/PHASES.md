@@ -207,13 +207,76 @@ GitHub: https://github.com/severonick-dev/proxels
 - Web `/legal/privacy` → SPA 200
 - Vite proxy `/api/legal/privacy` → 200
 
-## 🔜 Этап 10 — Своя система выдачи subscription-ссылок
+## ✅ Этап 10 — Своя система выдачи subscription-ссылок
 
-- `GET /api/sub/:subToken` — отдаёт base64-список VLESS URI всех живых нод.
-- `XrayNodeClient` (gRPC HandlerService.AddUser/RemoveUser) — добавление
-  клиентов на ноды при выпуске подписки.
-- Подключение нод через админку (`Node` модель уже есть).
-- `docs/PRIVACY-ARCHITECTURE.md` — описать как именно обеспечен no-logs.
+**Prisma:**
+
+- `Node` расширен полями `port: Int @default(443)` и `sni: String` (по
+  умолчанию `www.microsoft.com`). Миграция `20260530114539_add_node_port_sni`.
+
+**Backend (`apps/api/src/`):**
+
+- `xray/` — модуль клиента к Xray:
+  - `xray.types.ts` — интерфейс `XrayNodeClient { addUser, removeUser, getClientStats? }`.
+    Контракт жёстко whitelist'нут: ничего, что выглядело бы как «история активности».
+  - `clients/noop.client.ts` — для dev, просто логирует.
+  - `clients/grpc.client.ts` — skeleton с явным `throw new Error('not implemented')`.
+    Будет дописан, когда поднимется первая боевая нода (Этап 13).
+  - `xray.module.ts` — Global, фабрика выбирает реализацию по ENV `XRAY_CLIENT=noop|grpc`.
+    В production `noop` запрещён.
+  - `xray.service.ts` — `materializeForSubscription(subId, tx?)`: создаёт
+    XrayClient'ы на каждой online+active ноде, вызывает `XrayNodeClient.addUser`.
+    Если конкретная нода падает — продолжаем с остальными (failover на этапе выпуска).
+- `sub/` — публичный подписочный эндпоинт:
+  - `vless-uri.ts` — генератор VLESS Reality URI с правильными параметрами
+    (encryption=none, type=tcp, security=reality, pbk/sni/sid/fp=chrome/flow=xtls-rprx-vision).
+  - `sub.service.ts` — `resolveBySubToken`: проверяет валидность подписки,
+    lazy materialization XrayClient'ов если их ещё нет, собирает URI'и,
+    возвращает base64-payload + Subscription-Userinfo header.
+    На любые проблемы → 404 без подсказок.
+  - `sub.controller.ts` — `GET /api/sub/:subToken` с
+    `Content-Type: text/plain; charset=utf-8`, `Profile-Update-Interval: 24`,
+    `Profile-Title: Proxels`, `Cache-Control: no-store`. Throttle 30/60s.
+
+**PaymentsService.handleSucceeded:**
+
+- В той же Postgres-транзакции, что создаёт Subscription, теперь вызывается
+  `xray.materializeForSubscription(sub.id, tx)`. Атомарно: либо обе записи
+  (Subscription + XrayClient'ы), либо ни одной.
+
+**Seed:**
+
+- `prisma/seed-nodes.ts` — 2 dev-ноды (`dev-de-1`, `dev-de-2`) с заглушечными
+  publicKey/shortId. Запускаются только при `NODE_ENV !== 'production'`.
+  Это позволяет тестировать `/api/sub/:token` локально, не имея реальных нод.
+
+**Infra & docs:**
+
+- `infra/xray/README.md` — инструкция установки Xray на ноде (Reality keys,
+  config, проверки безопасности), как настроить gRPC API inbound, как
+  зарегистрировать ноду в БД, что НЕЛЬЗЯ делать (access-логи!).
+- `infra/xray/node-config.example.json` — рабочий шаблон Xray config с
+  `log.access=none`, `sniffing.enabled=false`, ApiService whitelist.
+- `docs/PRIVACY-ARCHITECTURE.md` — полное описание архитектуры приватности:
+  что хранится / что НЕ хранится, как обеспечено на нодах и в backend,
+  что хранят сторонние сервисы, юр.следствия (152-ФЗ / 376-ФЗ Яровая),
+  чек-лист владельца перед прод-запуском, шаблон ответа на запрос
+  «отчёт по активности юзера X».
+
+**ENV:**
+
+- `XRAY_CLIENT=noop|grpc` (default noop в dev). В production `noop` → ошибка.
+
+**Smoke (7/7):**
+
+- Регистрация → verify → login
+- Payment succeeded → Subscription + **2 XrayClient'а на 2 dev-нодах**
+- `GET /api/sub/:subToken` → 200 + base64-блоб + Subscription-Userinfo header,
+  декодируется в 2 валидных VLESS Reality URI с правильными параметрами
+- Bad token (40 нулей) → 404
+- Short token → 404
+- `Node` таблица содержит port/sni/status
+- AuditLog: `subscription.issue` (4)
 
 ## 🔜 Этап 11 — Health-check + failover
 

@@ -1,0 +1,98 @@
+{
+  "_comment": "Шаблон конфига Xray для ноды Proxels. Скопировать в /usr/local/etc/xray/config.json, заменить <PLACEHOLDERS>. См. infra/xray/README.md.",
+  "log": {
+    "loglevel": "warning",
+    "access": "none",
+    "error": "none"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService", "StatsService"]
+  },
+  "stats": {},
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true
+    }
+  },
+  "inbounds": [
+    {
+      "_comment": "VLESS Reality, обслуживает внешний трафик клиентов на :443.",
+      "tag": "vless-reality",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.microsoft.com:443",
+          "xver": 0,
+          "serverNames": ["www.microsoft.com"],
+          "privateKey": "<REPLACE_WITH_REALITY_PRIVATE_KEY>",
+          "shortIds": ["<REPLACE_WITH_SHORT_ID>"]
+        }
+      },
+      "sniffing": {
+        "enabled": false,
+        "_comment": "Sniffing отключен — мы не хотим даже видеть destination доменов клиентов (см. PRIVACY-ARCHITECTURE.md)."
+      }
+    },
+    {
+      "_comment": "gRPC API инбаунд. Слушает только на localhost (или приватной сети к backend). НЕЛЬЗЯ открывать в интернет.",
+      "tag": "api",
+      "listen": "127.0.0.1",
+      "port": 10085,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "_comment": "Прямой выход в интернет.",
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "_comment": "Чёрная дыра — блокируем по rules ниже.",
+      "protocol": "blackhole",
+      "tag": "blocked"
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "_comment": "API инбаунд маршрутизируем во встроенный ApiService.",
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "_comment": "Блокируем доступ к private/loopback диапазонам, чтобы клиенты не сканировали внутреннюю сеть.",
+        "type": "field",
+        "ip": ["geoip:private"],
+        "outboundTag": "blocked"
+      },
+      {
+        "_comment": "Опционально: блокировать BitTorrent (можно убрать).",
+        "type": "field",
+        "protocol": ["bittorrent"],
+        "outboundTag": "blocked"
+      }
+    ]
+  }
+}

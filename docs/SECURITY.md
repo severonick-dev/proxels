@@ -130,6 +130,41 @@
       (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
       `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
+## Этап 10 — Своя система выдачи + Xray-абстракция
+
+- [x] `GET /api/sub/:subToken` под `Throttle(30/60s)`. На любые проблемы (sub
+      не найдена/expired/cancelled, нет живых нод) → 404 без подсказок
+      (не палим существование токена).
+- [x] subToken проверяется на минимальную длину 16 (быстрый отказ
+      перебора коротких токенов, даже до Throttler).
+- [x] `Content-Type: text/plain; charset=utf-8` + `Cache-Control: no-store`
+      (отключаем кэширование на прокси/CDN, чтобы failover отражался сразу).
+- [x] `Subscription-Userinfo` header — клиенту видно остаток трафика/времени.
+- [x] `XrayNodeClient` интерфейс минимальный: только AddUser, RemoveUser,
+      опц. GetClientStats (агрегированные байты). НИ `getClientLog`, НИ
+      `getClientDestinations` в контракте не предусмотрено.
+- [x] Фабрика `XrayModule` запрещает `XRAY_CLIENT=noop` в production
+      (бросает на старте — никаких «продаём подписки, которые никому
+      не выписываются»).
+- [x] `GrpcXrayNodeClient` — skeleton с явным `throw new Error('not implemented')`
+      в каждом методе. Безопасно: при случайной попытке использовать в dev
+      падает шумно.
+- [x] `materializeForSubscription` — атомарно с Payment в одной Postgres-транзакции
+      (вызывается из `PaymentsService.handleSucceeded`). Если конкретная нода
+      падает на addUser — продолжаем с остальными.
+- [x] Lazy materialization в `SubService.resolveBySubToken`: если на момент
+      оплаты не было ни одной online-ноды, первый вызов `/api/sub/:token`
+      попробует материализовать.
+- [x] Pino redact + URL-masking для `/api/sub/<token>` (уже было, не сломано).
+- [x] `infra/xray/node-config.example.json` — `log.access: none`,
+      `log.error: none`, `sniffing.enabled: false`, ApiService whitelist
+      (`HandlerService`, `StatsService`). Документировано в `infra/xray/README.md`.
+- [x] `docs/PRIVACY-ARCHITECTURE.md` — полный документ-инвариант:
+      что хранится / что НЕТ, как проверить ноду после установки,
+      шаблон ответа на запрос «отчёт по активности юзера X».
+- [x] Seed dev-нод (`prisma/seed-nodes.ts`) запускается только при
+      `NODE_ENV !== 'production'` — никаких заглушечных нод в проде.
+
 ## Этап 9 — Юр.страницы + cookie-banner + Yandex.Metrika
 
 - [x] `LegalDocsService` + `GET /api/legal/:slug` + `GET /api/legal`

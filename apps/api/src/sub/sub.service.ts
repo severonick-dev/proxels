@@ -1,0 +1,78 @@
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { SubscriptionStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { XrayService } from '../xray/xray.service.js';
+import { buildVlessRealityUri } from './vless-uri.js';
+
+export interface SubResponse {
+  /** Сам список URI (для отладки и админ-просмотра). */
+  uris: string[];
+  /** Готовый base64-блоб для клиентов. */
+  base64Payload: string;
+  /** Заголовок Subscription-Userinfo (для клиентов отображать остаток трафика). */
+  userInfoHeader: string;
+  /** Эпоха истечения подписки в секундах. */
+  expireUnix: number;
+}
+
+@Injectable()
+export class SubService {
+  private readonly log = new Logger('Sub');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly xray: XrayService,
+  ) {}
+
+  /**
+   * Главный метод подписочного эндпоинта.
+   *
+   * Принцип «не раскрывать»: на любые проблемы (sub не найдена, expired,
+   * cancelled, нет живых нод) отдаём NotFound без подсказок.
+   */
+  async resolveBySubToken(subToken: string): Promise<SubResponse> {
+    if (!subToken || subToken.length < 16) throw new NotFoundException();
+
+    const sub = await this.prisma.subscription.findUnique({ where: { subToken } });
+    if (!sub) throw new NotFoundException();
+    if (sub.status !== SubscriptionStatus.active) throw new NotFoundException();
+    if (!sub.endAt || sub.endAt.getTime() <= Date.now()) throw new NotFoundException();
+
+    // Lazy materialization: если XrayClient'ов нет (например, в момент оплаты не было
+    // ни одной online-ноды) — попробовать сейчас.
+    let clients = await this.prisma.xrayClient.findMany({
+      where: { subscriptionId: sub.id, node: { isActive: true, status: 'online' } },
+      include: { node: true },
+    });
+    if (clients.length === 0) {
+      const materialized = await this.xray.materializeForSubscription(sub.id);
+      clients = materialized.filter((c) => c.node.isActive && c.node.status === 'online');
+    }
+
+    if (clients.length === 0) {
+      // Подписка валидная, но прямо сейчас нет ни одной живой ноды.
+      // Клиенту лучше отдать пустой base64 + Userinfo, чем 404 — чтобы он не сбрасывал
+      // конфиг и продолжал переподтягивать через Profile-Update-Interval.
+      this.log.warn({ subscriptionId: sub.id }, 'No online nodes for subscription');
+    }
+
+    const uris = clients.map((c) => buildVlessRealityUri(c));
+    const base64Payload = Buffer.from(uris.join('\n'), 'utf-8').toString('base64');
+
+    const expireUnix = Math.floor(sub.endAt.getTime() / 1000);
+    const used = Number(sub.trafficUsedBytes);
+    // Если у плана есть лимит, отдаём его, иначе огромное число (1 PiB) — клиенты
+    // покажут «безлимит».
+    const total = await this.computeTotalBytes(sub.planId);
+    const upload = 0; // мы не различаем upload/download на нашей стороне — кладём всё в download.
+    const userInfoHeader = `upload=${upload}; download=${used}; total=${total}; expire=${expireUnix}`;
+
+    return { uris, base64Payload, userInfoHeader, expireUnix };
+  }
+
+  private async computeTotalBytes(planId: string): Promise<number> {
+    const plan = await this.prisma.plan.findUnique({ where: { id: planId } });
+    if (!plan?.trafficLimitGb) return 1 << 50; // 1 PiB ≈ безлимит
+    return plan.trafficLimitGb * 1024 * 1024 * 1024;
+  }
+}

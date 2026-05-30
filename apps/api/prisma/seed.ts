@@ -2,6 +2,7 @@
 import { Locale, PrismaClient, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { seedLegalDocs } from './seed-legal.js';
+import { seedDevNodes } from './seed-nodes.js';
 
 /**
  * Идемпотентный seed для dev/staging.
@@ -104,6 +105,12 @@ async function main(): Promise<void> {
   await seedPlans();
   console.log('Seeding legal documents:');
   await seedLegalDocs(prisma);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Seeding dev nodes (NODE_ENV != production):');
+    await seedDevNodes(prisma);
+  } else {
+    console.log('Skipping dev nodes (NODE_ENV=production)');
+  }
   console.log('Seeding admin (optional):');
   await seedAdmin();
 }
