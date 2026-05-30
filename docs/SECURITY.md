@@ -130,11 +130,40 @@
       (`isProduction → return false`). Симуляция `payment.succeeded` для тестов —
       `POST /api/payments/dev/simulate-succeeded/:yookassaId` (403 в prod).
 
-## Этап 6/7 — Frontend
+## Этап 6 — Frontend каркас
 
-- [ ] CSP-заголовки на nginx: `default-src 'self'`, явный whitelist для метрики/капчи.
-- [ ] Все формы используют CAPTCHA-токен, валидируемый на сервере.
-- [ ] User-content (если будет) — через DOMPurify; React не используется для опасных HTML.
+- [x] React 18 + TS + Vite + Tailwind 3 + Radix UI + Framer Motion + i18next
+      (ru/en) + React Router 6 — стек по §1/§3 CLAUDE.md.
+- [x] Темы dark/light/system; класс `.dark` / `.light` на `<html>`, выбор
+      хранится в `localStorage:proxels:theme`. FOUC-блокирующий inline-скрипт
+      в `index.html` ставит тему ДО рендера React (нет вспышки светлой темы).
+      Дефолт — `dark` (см. §3 CLAUDE.md).
+- [x] i18n: ru-дефолт, en-альтернатива; `<html lang>` синхронизируется через
+      `i18n.on('languageChanged')`; выбор сохраняется в `localStorage:proxels:locale`.
+      Хардкода строк в компонентах нет — всё через `t(...)`.
+- [x] Mobile-first layout с off-canvas бургер-меню (Radix Dialog), переключателями
+      темы и языка, ссылкой на единственную соц-сеть Telegram `t.me/proxels`
+      (см. §13 запрет на VK/Insta/...).
+- [x] Реквизиты ИП в футере (имя, ОГРНИП, ИНН) — в i18n-ключах
+      `footer.ip.{name,ogrnip,inn}`, источник для перевода — verified §11a данные.
+      Явная отметка «Сервис не ведёт журналов посещаемых ресурсов» (§4a).
+- [x] Vite-прокси `/api/* → backend:3000` в dev, чтобы не получить CORS-проблем.
+      В prod nginx уже это делает (Этап 13).
+- [x] API-клиент (`src/lib/api.ts`): `credentials: 'include'` по умолчанию (нужно
+      для httpOnly refresh-cookie из Этапа 3), типизированный `ApiError`,
+      без `axios` (минимизируем bundle).
+- [x] `dangerouslySetInnerHTML` нигде не используется (только React-рендер user-input).
+      Если когда-нибудь понадобится для markdown — пропускать через DOMPurify
+      (в Этапе 9 при наполнении юр.документов).
+
+### Открытые TODO для Этапа 7 (лендинг + SEO) и Этапа 13 (деплой)
+
+- [ ] CSP-заголовки выставляет nginx (Этап 13): `default-src 'self'`,
+      явный whitelist для шрифтов Google, домена YooKassa, Yandex SmartCaptcha,
+      Yandex.Metrika. Включить только после согласия на cookie (см. §4c CLAUDE.md).
+- [ ] Все формы будут использовать CAPTCHA-токен, валидируемый на сервере (Этап 8).
+- [ ] User-content (юр.документы) — через DOMPurify в Этапе 9.
+- [ ] SSR/pre-render лендинга для SEO — Этап 7 (`docs/SEO.md`).
 
 ## Этап 10 — Xray nodes (КРИТИЧНО для no-logs)
 

@@ -102,9 +102,12 @@ pnpm format:check
 pnpm typecheck
 pnpm build
 
-# Frontend (с Этапа 6)
+# Frontend (Vite + React; http://localhost:5173)
 pnpm dev:web
 pnpm dev           # параллельно api+web
+
+# Build всего
+pnpm build
 
 # Остановить инфру
 docker compose -f infra/docker/docker-compose.dev.yml down

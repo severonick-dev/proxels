@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* -------------------------------------------------------------------------
+ * Тематические токены (CLAUDE.md §3).
+ *  - Светлая: чистые нейтральные тона.
+ *  - Тёмная (дефолт): глубокие графитово-синие фоны, неоновый акцент
+ *    (фиолетово-голубой градиент) — управляется через bg-brand-gradient.
+ * Все цвета — в HSL без `hsl(...)` обёртки, чтобы tailwind opacity-modifiers работали.
+ * -------------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 24% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 24% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 24% 12%;
+
+    --primary: 252 84% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 24% 12%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 40%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 24% 12%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 252 84% 56%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 28% 7%;
+    --foreground: 220 16% 92%;
+
+    --card: 224 24% 10%;
+    --card-foreground: 220 16% 92%;
+
+    --popover: 224 24% 9%;
+    --popover-foreground: 220 16% 92%;
+
+    --primary: 252 88% 70%;
+    --primary-foreground: 224 28% 7%;
+
+    --secondary: 224 18% 14%;
+    --secondary-foreground: 220 16% 92%;
+
+    --muted: 224 18% 14%;
+    --muted-foreground: 220 10% 65%;
+
+    --accent: 224 18% 16%;
+    --accent-foreground: 220 16% 92%;
+
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 224 16% 18%;
+    --input: 224 16% 18%;
+    --ring: 252 88% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-image: var(--bg-decor, none);
+  }
+
+  /* Глобальный фон-декор: только в тёмной теме, чтобы не отвлекал в светлой. */
+  .dark body {
+    background-image: radial-gradient(
+        circle at 12% 0%,
+        hsl(252 84% 56% / 0.18) 0%,
+        transparent 45%
+      ),
+      radial-gradient(circle at 88% 100%, hsl(212 92% 60% / 0.18) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.35);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(252 88% 70%), hsl(212 92% 60%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}

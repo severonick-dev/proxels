@@ -1,0 +1,114 @@
+{
+  "brand": {
+    "tagline": "VPN on our own Xray infrastructure (VLESS · Reality)"
+  },
+  "nav": {
+    "home": "Home",
+    "pricing": "Pricing",
+    "guides": "Guides",
+    "lk": "Dashboard",
+    "login": "Sign in",
+    "register": "Sign up",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "footer": {
+    "navTitle": "Navigation",
+    "legalTitle": "Legal",
+    "contactsTitle": "Contacts",
+    "telegram": "Telegram",
+    "noLogs": "We don't log visited sites. VPN traffic is encrypted (VLESS · Reality).",
+    "ip": {
+      "title": "Entity",
+      "name": "IE Korobeynikov S.S.",
+      "ogrnip": "OGRNIP 324253600103000",
+      "inn": "INN 250501904935"
+    },
+    "copyright": "© {{year}} Proxels. All rights reserved."
+  },
+  "legal": {
+    "privacy": "Privacy Policy",
+    "offer": "Terms of Service",
+    "cookies": "Cookie Notice"
+  },
+  "themeToggle": {
+    "label": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "lang": {
+    "label": "Language",
+    "ru": "Русский",
+    "en": "English"
+  },
+  "pages": {
+    "home": {
+      "title": "Speed and privacy.",
+      "titleAccent": "No compromises.",
+      "subtitle": "Proxels is a VPN running on our own servers with automatic failover and self-generated subscriptions. Managed from your dashboard, paid via YooKassa.",
+      "ctaTry": "Get started",
+      "ctaPricing": "Pricing",
+      "stubNote": "This is a placeholder page. Full landing — Phase 7."
+    },
+    "pricing": {
+      "title": "Pricing",
+      "subtitle": "From {{from}} ₽. 1 to 12 months. Active plans from API.",
+      "loading": "Loading plans…",
+      "error": "Failed to load plans.",
+      "perPeriod_one": "{{count}} day",
+      "perPeriod_other": "{{count}} days",
+      "noTraffic": "Unlimited traffic"
+    },
+    "guides": {
+      "title": "Guides",
+      "subtitle": "Step-by-step setup for Nekobox, Hiddify, V2RayTun.",
+      "stubNote": "Guide content will land in Phase 12."
+    },
+    "legal": {
+      "privacy": {
+        "title": "Privacy Policy",
+        "stubNote": "Editable from admin panel (Phase 9)."
+      },
+      "offer": {
+        "title": "Terms of Service",
+        "stubNote": "Editable from admin panel (Phase 9)."
+      },
+      "cookies": {
+        "title": "Cookie Notice",
+        "stubNote": "Cookie banner lands in Phase 9."
+      }
+    },
+    "auth": {
+      "login": {
+        "title": "Sign in",
+        "stubNote": "Form ships in Phase 8."
+      },
+      "register": {
+        "title": "Sign up",
+        "stubNote": "Form with CAPTCHA + PD consent — Phase 8."
+      },
+      "verify": {
+        "title": "Email verification",
+        "stubNote": "Link from email lands here; token validated by API (Phase 3 done)."
+      },
+      "reset": {
+        "title": "Reset password",
+        "stubNote": "Form ships in Phase 8."
+      }
+    },
+    "lk": {
+      "title": "Dashboard",
+      "stubNote": "Subscription view, QR, payment history — Phase 8."
+    },
+    "admin": {
+      "title": "Admin",
+      "stubNote": "Nodes, plans, legal docs management — Phase 12 (with mandatory 2FA)."
+    },
+    "notFound": {
+      "title": "Page not found",
+      "subtitle": "We couldn't find what you're looking for.",
+      "back": "Back home"
+    }
+  }
+}
