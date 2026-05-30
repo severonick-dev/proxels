@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b0e14" />
+      <stop offset="100%" stop-color="#161a26" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.18" cy="0.25" r="0.5">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.85" cy="0.85" r="0.55">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#glow1)" />
+  <rect width="1200" height="630" fill="url(#glow2)" />
+
+  <!-- Logo mark -->
+  <g transform="translate(96, 92)">
+    <rect width="84" height="84" rx="20" fill="url(#brand)" />
+    <text x="42" y="62" text-anchor="middle" font-family="'Space Grotesk', system-ui, sans-serif"
+          font-size="56" font-weight="800" fill="#ffffff">P</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="200" y="148" font-family="'Space Grotesk', system-ui, sans-serif"
+        font-size="44" font-weight="700" fill="#ffffff">Proxels</text>
+
+  <!-- Headline -->
+  <text x="96" y="320" font-family="'Space Grotesk', system-ui, sans-serif"
+        font-size="84" font-weight="700" fill="#ffffff">Скорость и приватность.</text>
+  <text x="96" y="420" font-family="'Space Grotesk', system-ui, sans-serif"
+        font-size="84" font-weight="700" fill="url(#brand)">Без компромиссов.</text>
+
+  <!-- Tagline -->
+  <text x="96" y="510" font-family="Inter, system-ui, sans-serif"
+        font-size="28" font-weight="500" fill="#a3aac0">
+    VPN на собственной инфраструктуре · VLESS Reality · ЮKassa
+  </text>
+
+  <!-- Footer dot bar -->
+  <text x="96" y="568" font-family="Inter, system-ui, sans-serif"
+        font-size="22" font-weight="500" fill="#5b6373">proxels.ru · t.me/proxels</text>
+</svg>

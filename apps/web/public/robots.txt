@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /lk
+Disallow: /lk/
+Disallow: /auth/verify-email
+Disallow: /auth/reset-password
+Disallow: /dev/
+
+Sitemap: https://proxels.ru/sitemap.xml
