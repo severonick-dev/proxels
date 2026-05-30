@@ -64,8 +64,11 @@ export default function LoginPage(): JSX.Element {
       });
       setAuth(res.accessToken, res.user);
       toast.success(t('auth.toast.welcomeBack', { email: res.user.email }));
-      const ret = params.get('return') ?? '/lk';
-      navigate(decodeURIComponent(ret), { replace: true });
+      // Приоритеты редиректа: явный ?return → выбранный гайд по платформе → /news
+      const ret = params.get('return');
+      const guide = params.get('guide');
+      const target = ret ? decodeURIComponent(ret) : guide ? `/guides/${guide}` : '/news';
+      navigate(target, { replace: true });
     } catch (err) {
       // Если бэк сказал «нужен TOTP» — показываем поле и просим ввести.
       if (

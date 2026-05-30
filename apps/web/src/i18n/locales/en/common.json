@@ -34,9 +34,6 @@
       "passwordSame": "New password must differ from the current one",
       "consentRequired": "Consent is required to register",
       "captcha": "Confirm you are not a robot"
-    },
-    "captcha": {
-      "devNote": "DEV mode, production uses Yandex SmartCaptcha"
     }
   },
   "auth": {
@@ -207,18 +204,19 @@
     "offer": "Terms of Service",
     "cookies": "Cookie Notice",
     "version": "Version: {{version}}",
-    "publishedAt": "published {{date}}",
-    "disclaimer": "This document is a working template. Will be reviewed by a lawyer before public launch."
+    "publishedAt": "published {{date}}"
   },
   "admin": {
     "panelLabel": "Admin panel",
     "nav": {
       "overview": "Overview",
       "users": "Users",
+      "plans": "Plans",
       "payments": "Payments",
       "promos": "Promo codes",
       "nodes": "Nodes",
       "guides": "Guides",
+      "news": "News",
       "legal": "Legal docs",
       "audit": "Audit"
     },
@@ -285,8 +283,7 @@
         "sort": "Sort",
         "published": "Published",
         "preview": "Preview"
-      },
-      "editorNote": "CRUD via REST: GET/POST/PATCH/DELETE /api/admin/guides. Inline markdown editor — next iteration (needs MDXEditor / SimpleMDE)."
+      }
     },
     "legal": {
       "title": "Legal docs",
@@ -298,8 +295,7 @@
         "updated": "Updated",
         "preview": "Preview"
       },
-      "preview": "Open",
-      "editorNote": "Create/edit via REST: POST /api/admin/legal, PATCH /api/admin/legal/:id. Inline editor — next iteration."
+      "preview": "Open"
     },
     "audit": {
       "title": "Audit",
@@ -311,6 +307,83 @@
         "actor": "Actor"
       },
       "pageInfo": "{{from}}–{{to}} of {{total}}"
+    },
+    "plans": {
+      "title": "Plans",
+      "subtitle": "Active plans: {{count}}",
+      "add": "Create",
+      "cancel": "Cancel",
+      "create": "Create",
+      "save": "Save",
+      "free": "Free",
+      "unlimited": "∞",
+      "fields": {
+        "name": "Name",
+        "price": "Price, ₽",
+        "priceHint": "0 = Free plan (issued without payment)",
+        "duration": "Duration, days",
+        "traffic": "Traffic limit, GB",
+        "sort": "Sort order",
+        "active": "Active"
+      },
+      "cols": {
+        "name": "Name",
+        "price": "Price",
+        "duration": "Duration",
+        "traffic": "Traffic",
+        "sort": "Sort",
+        "active": "Active",
+        "actions": "Actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "deactivate": "Deactivate"
+      },
+      "confirmDeactivate": "Deactivate plan \"{{name}}\"?",
+      "dialog": {
+        "createTitle": "New plan",
+        "editTitle": "Edit plan"
+      },
+      "toast": {
+        "created": "Plan created",
+        "updated": "Plan updated",
+        "deactivated": "Plan deactivated"
+      }
+    },
+    "news": {
+      "title": "News",
+      "subtitle": "Total posts: {{count}}",
+      "add": "Create post",
+      "cancel": "Cancel",
+      "create": "Publish",
+      "save": "Save",
+      "fields": {
+        "title": "Title",
+        "summary": "Summary",
+        "content": "Content (markdown)",
+        "contentHint": "GFM markdown supported. Links and images welcome.",
+        "publish": "Publish"
+      },
+      "cols": {
+        "title": "Title",
+        "published": "Published",
+        "updated": "Updated",
+        "actions": "Actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "confirmDelete": "Delete post \"{{title}}\"? This is irreversible.",
+      "dialog": {
+        "createTitle": "New post",
+        "editTitle": "Edit post"
+      },
+      "toast": {
+        "created": "Post created",
+        "updated": "Post updated",
+        "deleted": "Post deleted"
+      }
     },
     "promos": {
       "title": "Promo codes",
@@ -362,13 +435,15 @@
     },
     "actions": {
       "cancel": "Cancel",
-      "pay": "Pay"
+      "pay": "Pay",
+      "activate": "Activate"
     },
     "errors": {
       "offerRequired": "Please accept the offer and privacy policy to continue"
     },
     "toast": {
-      "devSimulated": "DEV: payment simulated, subscription is now active"
+      "devSimulated": "DEV: payment simulated, subscription is now active",
+      "freeActivated": "Free plan activated"
     },
     "promo": {
       "label": "Promo code",
@@ -473,11 +548,33 @@
       },
       "pricingPreview": {
         "eyebrow": "Pricing",
-        "title": "Pay for exactly the period you need",
-        "subtitle": "All plans are unlimited traffic with failover between nodes. Longer term = cheaper month.",
+        "title": "Three subscription tiers",
+        "subtitle": "Free — try it out. Medium — daily use. High — no limits.",
         "cta": "All plans",
         "perDay": "{{count}} d.",
-        "buy": "Buy"
+        "freeNote": "Free · {{count}} d.",
+        "buy": "Buy",
+        "activate": "Activate"
+      },
+      "platform": {
+        "eyebrow": "Get started",
+        "title": "What device will you connect from?",
+        "subtitle": "Pick a platform — we'll show you the exact guide you need.",
+        "cta": "Start",
+        "items": {
+          "windows": {
+            "title": "Windows",
+            "body": "Desktop / laptop. Connect via V2RayTun or v2rayN."
+          },
+          "android": {
+            "title": "Android",
+            "body": "Phone / tablet. Lightweight Nekobox from Google Play."
+          },
+          "ios": {
+            "title": "iOS",
+            "body": "iPhone / iPad. Hiddify from App Store with auto-setup."
+          }
+        }
       },
       "apps": {
         "eyebrow": "Supported apps",
@@ -548,21 +645,28 @@
       "empty": "No guides yet.",
       "open": "Open",
       "backToList": "Back to guides",
-      "notFound": "Guide not found or no longer published."
+      "notFound": "Guide not found or no longer published.",
+      "didntHelp": {
+        "title": "Didn't help? Try another app",
+        "body": "All VLESS Reality clients are on the guides page."
+      },
+      "support": {
+        "title": "Contact support"
+      }
+    },
+    "news": {
+      "title": "News",
+      "seoTitle": "Proxels news",
+      "seoDescription": "Service updates, new features and important announcements.",
+      "subtitle": "What's new in the service and infrastructure.",
+      "empty": "Nothing published yet — but it's coming.",
+      "back": "Back to news",
+      "notFound": "Post not found."
     },
     "legal": {
-      "privacy": {
-        "title": "Privacy Policy",
-        "stubNote": "Editable from admin panel (Phase 9)."
-      },
-      "offer": {
-        "title": "Terms of Service",
-        "stubNote": "Editable from admin panel (Phase 9)."
-      },
-      "cookies": {
-        "title": "Cookie Notice",
-        "stubNote": "Cookie banner lands in Phase 9."
-      }
+      "privacy": { "title": "Privacy Policy" },
+      "offer": { "title": "Terms of Service" },
+      "cookies": { "title": "Cookie Notice" }
     },
     "auth": {
       "login": { "title": "Sign in", "subtitle": "Sign in to your dashboard." },
@@ -575,12 +679,10 @@
       "reset": { "title": "New password", "subtitle": "Set a new password for your account." }
     },
     "lk": {
-      "title": "Dashboard",
-      "stubNote": "Subscription view, QR, payment history — Phase 8."
+      "title": "Dashboard"
     },
     "admin": {
-      "title": "Admin",
-      "stubNote": "Nodes, plans, legal docs management — Phase 12 (with mandatory 2FA)."
+      "title": "Admin"
     },
     "notFound": {
       "title": "Page not found",

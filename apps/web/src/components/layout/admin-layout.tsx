@@ -5,6 +5,8 @@ import {
   CreditCard,
   FileText,
   History,
+  Layers,
+  Newspaper,
   ScrollText,
   Server,
   Tag,
@@ -24,10 +26,12 @@ interface NavItem {
 const ITEMS: NavItem[] = [
   { to: '/admin', end: true, labelKey: 'admin.nav.overview', Icon: History },
   { to: '/admin/users', labelKey: 'admin.nav.users', Icon: Users },
+  { to: '/admin/plans', labelKey: 'admin.nav.plans', Icon: Layers },
   { to: '/admin/payments', labelKey: 'admin.nav.payments', Icon: CreditCard },
   { to: '/admin/promos', labelKey: 'admin.nav.promos', Icon: Tag },
   { to: '/admin/nodes', labelKey: 'admin.nav.nodes', Icon: Server },
   { to: '/admin/guides', labelKey: 'admin.nav.guides', Icon: BookOpen },
+  { to: '/admin/news', labelKey: 'admin.nav.news', Icon: Newspaper },
   { to: '/admin/legal', labelKey: 'admin.nav.legal', Icon: FileText },
   { to: '/admin/audit', labelKey: 'admin.nav.audit', Icon: ScrollText },
 ];

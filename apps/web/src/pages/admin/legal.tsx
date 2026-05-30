@@ -76,10 +76,6 @@ export default function AdminLegalPage(): JSX.Element {
           </table>
         </div>
       )}
-
-      <div className="mt-6 rounded-lg border border-dashed border-border bg-card/40 p-4 text-xs text-muted-foreground">
-        {t('admin.legal.editorNote')}
-      </div>
     </>
   );
 }

@@ -15,9 +15,9 @@ export class CreatePlanDto {
   @MaxLength(100)
   name!: string;
 
-  /** Цена в рублях, целое число. */
+  /** Цена в рублях, целое число. 0 = Free-тариф (выдаётся через `/api/subscriptions/activate-free`). */
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(1_000_000)
   priceRub!: number;
 

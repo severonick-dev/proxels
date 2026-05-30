@@ -64,12 +64,12 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
             {t('pages.pricing.loading')}
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((p, idx) => (
               <PlanCard
                 key={p.id}
                 plan={p}
-                highlight={cheapest != null && p.priceRub === cheapest}
+                highlight={p.priceRub > 0 && cheapest != null && p.priceRub === cheapest}
                 idx={idx}
                 t={t}
                 onBuy={() => setBuyingPlan(p)}
@@ -106,8 +106,8 @@ interface CardProps {
 }
 
 function PlanCard({ plan, highlight, idx, t, onBuy }: CardProps): JSX.Element {
-  const monthly = Math.round((plan.priceRub / plan.durationDays) * 30);
   const isAuthed = useAuthStore((s) => s.status === 'auth');
+  const isFree = plan.priceRub === 0;
 
   return (
     <motion.article
@@ -131,7 +131,9 @@ function PlanCard({ plan, highlight, idx, t, onBuy }: CardProps): JSX.Element {
         <span className="text-sm text-muted-foreground">₽</span>
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
-        ≈ {monthly} ₽/мес · {t('pages.home.pricingPreview.perDay', { count: plan.durationDays })}
+        {isFree
+          ? t('pages.home.pricingPreview.freeNote')
+          : t('pages.home.pricingPreview.perDay', { count: plan.durationDays })}
       </div>
 
       <ul className="mt-5 space-y-2 text-sm">
@@ -151,7 +153,7 @@ function PlanCard({ plan, highlight, idx, t, onBuy }: CardProps): JSX.Element {
       <div className="mt-6 pt-2 flex-1 flex flex-col justify-end">
         {isAuthed ? (
           <Button onClick={onBuy} className="w-full" variant={highlight ? 'gradient' : 'outline'}>
-            {t('pages.home.pricingPreview.buy')}
+            {isFree ? t('pages.home.pricingPreview.activate') : t('pages.home.pricingPreview.buy')}
           </Button>
         ) : (
           <Button asChild className="w-full" variant={highlight ? 'gradient' : 'outline'}>

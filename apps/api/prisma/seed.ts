@@ -25,11 +25,17 @@ interface PlanSeed {
   sortOrder: number;
 }
 
+/**
+ * Три тарифа: Free / Medium / High. Free выдаётся через `/api/subscriptions/activate-free`
+ * без YooKassa, остальные — через стандартный платёжный flow. Длительность у всех 30
+ * дней; первичное ограничение — это лимит трафика. После исчерпания лимита подписка
+ * не блокируется на уровне доступа (этого пока нет в Xray gRPC), но в UI показываем
+ * что лимит достигнут.
+ */
 const PLANS: PlanSeed[] = [
-  { name: '1 месяц', priceRub: 150, durationDays: 30, trafficLimitGb: null, sortOrder: 0 },
-  { name: '3 месяца', priceRub: 400, durationDays: 90, trafficLimitGb: null, sortOrder: 1 },
-  { name: '6 месяцев', priceRub: 750, durationDays: 180, trafficLimitGb: null, sortOrder: 2 },
-  { name: '12 месяцев', priceRub: 1400, durationDays: 365, trafficLimitGb: null, sortOrder: 3 },
+  { name: 'Free', priceRub: 0, durationDays: 30, trafficLimitGb: 2, sortOrder: 0 },
+  { name: 'Medium', priceRub: 100, durationDays: 30, trafficLimitGb: 50, sortOrder: 1 },
+  { name: 'High', priceRub: 450, durationDays: 30, trafficLimitGb: null, sortOrder: 2 },
 ];
 
 async function seedPlans(): Promise<void> {
@@ -51,6 +57,16 @@ async function seedPlans(): Promise<void> {
       await prisma.plan.create({ data: { ...plan, isActive: true } });
       console.log(`  ✓ plan "${plan.name}" created`);
     }
+  }
+  // Деактивируем все Plan'ы, которых нет в актуальном списке (старые «1 месяц» и т.д.).
+  // FK на Subscription не теряем — soft-delete, существующие подписки остаются валидны.
+  const keep = PLANS.map((p) => p.name);
+  const obsolete = await prisma.plan.updateMany({
+    where: { name: { notIn: keep }, isActive: true },
+    data: { isActive: false },
+  });
+  if (obsolete.count > 0) {
+    console.log(`  ↻ deactivated ${obsolete.count} obsolete plan(s)`);
   }
 }
 

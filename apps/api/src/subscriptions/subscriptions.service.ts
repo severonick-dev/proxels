@@ -1,14 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { Plan, Prisma, Subscription, SubscriptionStatus } from '@prisma/client';
 import { SUB_TOKEN_BYTES } from '@proxels/shared';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { XrayService } from '../xray/xray.service.js';
+import { AuditService } from '../audit/audit.service.js';
 
 export type SubscriptionWithPlan = Subscription & { plan: Plan };
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly xray: XrayService,
+    private readonly audit: AuditService,
+  ) {}
 
   listForUser(userId: string): Promise<SubscriptionWithPlan[]> {
     return this.prisma.subscription.findMany({
@@ -95,6 +106,60 @@ export class SubscriptionsService {
         subToken: generateSubToken(),
       },
     });
+  }
+
+  /**
+   * Активация Free-тарифа (`priceRub == 0`). Без YooKassa — но с теми же
+   * гарантиями: подписка + xray-клиенты в одной транзакции.
+   *
+   * Запрещено: активировать Free, если у юзера уже есть активная подписка
+   * (любого плана) — пусть сначала использует то, что есть. Защита от
+   * злоупотребления `Free` как «продлить халявно поверх платной».
+   */
+  async activateFreeForUser(args: {
+    userId: string;
+    planId: string;
+    ip?: string | null;
+  }): Promise<Subscription> {
+    const plan = await this.prisma.plan.findFirst({
+      where: { id: args.planId, isActive: true },
+    });
+    if (!plan) throw new NotFoundException('Plan not available');
+    if (plan.priceRub !== 0) throw new BadRequestException('Plan is not free');
+
+    const now = new Date();
+    const active = await this.prisma.subscription.findFirst({
+      where: {
+        userId: args.userId,
+        status: SubscriptionStatus.active,
+        endAt: { gt: now },
+      },
+    });
+    if (active) throw new ConflictException('User already has an active subscription');
+
+    const sub = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.subscription.create({
+        data: {
+          userId: args.userId,
+          planId: plan.id,
+          status: SubscriptionStatus.active,
+          startAt: now,
+          endAt: addDays(now, plan.durationDays),
+          subToken: generateSubToken(),
+        },
+      });
+      await this.xray.materializeForSubscription(created.id, tx);
+      return created;
+    });
+
+    await this.audit.record({
+      action: 'subscription.activate-free',
+      actorId: args.userId,
+      ip: args.ip,
+      meta: { subscriptionId: sub.id, planId: plan.id },
+    });
+
+    return sub;
   }
 }
 

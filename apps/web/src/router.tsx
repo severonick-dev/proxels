@@ -7,6 +7,8 @@ import HomePage from '@/pages/home';
 import PricingPage from '@/pages/pricing';
 import GuidesIndexPage from '@/pages/guides/index';
 import GuideDetailPage from '@/pages/guides/detail';
+import NewsIndexPage from '@/pages/news/index';
+import NewsDetailPage from '@/pages/news/detail';
 import PrivacyPage from '@/pages/legal/privacy';
 import OfferPage from '@/pages/legal/offer';
 import CookiesPage from '@/pages/legal/cookies';
@@ -22,9 +24,11 @@ import LkSecurityPage from '@/pages/lk/security';
 import AdminOverviewPage from '@/pages/admin/overview';
 import AdminUsersPage from '@/pages/admin/users';
 import AdminPaymentsPage from '@/pages/admin/payments';
+import AdminPlansPage from '@/pages/admin/plans';
 import AdminPromosPage from '@/pages/admin/promos';
 import AdminNodesPage from '@/pages/admin/nodes';
 import AdminGuidesPage from '@/pages/admin/guides';
+import AdminNewsPage from '@/pages/admin/news';
 import AdminLegalPage from '@/pages/admin/legal';
 import AdminAuditPage from '@/pages/admin/audit';
 import NotFoundPage from '@/pages/not-found';
@@ -37,6 +41,8 @@ const routes: RouteObject[] = [
       { path: '/pricing', element: <PricingPage /> },
       { path: '/guides', element: <GuidesIndexPage /> },
       { path: '/guides/:slug', element: <GuideDetailPage /> },
+      { path: '/news', element: <NewsIndexPage /> },
+      { path: '/news/:slug', element: <NewsDetailPage /> },
       { path: '/legal/privacy', element: <PrivacyPage /> },
       { path: '/legal/offer', element: <OfferPage /> },
       { path: '/legal/cookies', element: <CookiesPage /> },
@@ -74,9 +80,11 @@ const routes: RouteObject[] = [
           { path: '/admin', element: <AdminOverviewPage /> },
           { path: '/admin/users', element: <AdminUsersPage /> },
           { path: '/admin/payments', element: <AdminPaymentsPage /> },
+          { path: '/admin/plans', element: <AdminPlansPage /> },
           { path: '/admin/promos', element: <AdminPromosPage /> },
           { path: '/admin/nodes', element: <AdminNodesPage /> },
           { path: '/admin/guides', element: <AdminGuidesPage /> },
+          { path: '/admin/news', element: <AdminNewsPage /> },
           { path: '/admin/legal', element: <AdminLegalPage /> },
           { path: '/admin/audit', element: <AdminAuditPage /> },
         ],

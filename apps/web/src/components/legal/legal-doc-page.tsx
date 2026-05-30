@@ -76,9 +76,6 @@ export function LegalDocPage({ slug, path, seoDescription }: Props): JSX.Element
 
         {data && (
           <>
-            <div className="mb-6 rounded-lg border border-dashed border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs text-yellow-600 dark:text-yellow-400/90">
-              {t('legal.disclaimer')}
-            </div>
             <div className="space-y-1 text-foreground/90">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}

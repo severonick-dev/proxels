@@ -1,10 +1,11 @@
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, MessageCircle } from 'lucide-react';
 import { SEO, breadcrumbJsonLd } from '@/components/seo/seo';
 import { Markdown } from '@/components/markdown';
 import { apiRequest, ApiError } from '@/lib/api';
+import { usePublicConfig } from '@/hooks/use-public-config';
 
 interface ApiGuide {
   id: string;
@@ -17,6 +18,7 @@ interface ApiGuide {
 export default function GuideDetailPage(): JSX.Element {
   const { t } = useTranslation();
   const { slug } = useParams<{ slug: string }>();
+  const config = usePublicConfig();
   const { data, isLoading, error } = useQuery({
     queryKey: ['guides', slug],
     queryFn: () => apiRequest<ApiGuide>(`/guides/${slug}`, { auth: false, skipCredentials: true }),
@@ -69,6 +71,38 @@ export default function GuideDetailPage(): JSX.Element {
               <p className="mt-2 text-sm text-muted-foreground">{data.platforms}</p>
             </header>
             <Markdown content={data.contentMd} />
+
+            <div className="mt-12 grid gap-3 rounded-2xl border border-border bg-card p-5 md:grid-cols-2">
+              <Link
+                to="/guides"
+                className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-accent/40"
+              >
+                <div>
+                  <div className="text-sm font-medium">{t('pages.guides.didntHelp.title')}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t('pages.guides.didntHelp.body')}
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <a
+                href={config.data?.brand.telegramUrl ?? 'https://t.me/proxels'}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:bg-accent/40"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <MessageCircle className="h-3.5 w-3.5 text-primary" />
+                    {t('pages.guides.support.title')}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {config.data?.brand.telegramHandle ?? '@proxels'}
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </a>
+            </div>
           </>
         )}
       </article>

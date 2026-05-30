@@ -533,6 +533,92 @@ ru+en.
 - Admin redemptions list → видит редемпцию.
 - Admin deactivate → `isActive=false`.
 
+## ✅ Этап 12b — Product polish (3 тарифа · News · Platform-first · Admin plans)
+
+**Pricing:**
+
+- Три тарифа вместо четырёх временных периодов: **Free** (0 ₽ / 2 GB / 30 дн),
+  **Medium** (100 ₽ / 50 GB / 30 дн), **High** (450 ₽ / unlimited / 30 дн).
+  `prisma/seed.ts` идемпотентно обновляет три актуальных + деактивирует все
+  остальные (`isActive=false`, FK сохраняется на исторических Subscription'ах).
+- `CreatePlanDto.priceRub` теперь `>= 0` (чтобы Free можно было создать через
+  admin UI). YooKassa дальше не вызывается для Free — отдельный путь.
+
+**Free-tier flow:**
+
+- `POST /api/subscriptions/activate-free` под `JwtAccessGuard` + throttle 3/60s.
+  Валидация: `plan.priceRub === 0`, `plan.isActive`, у юзера НЕТ активной
+  подписки (любого плана — Free не служит «продлить халявно»).
+- В `SubscriptionsService.activateFreeForUser`: Subscription + `XrayService.materializeForSubscription`
+  в одной Postgres-транзакции. Audit `subscription.activate-free`.
+- `PurchaseDialog` определяет `isFree = plan.priceRub === 0` и:
+  - Скрывает поле промокода (Free не комбинируется со скидками).
+  - Меняет CTA `Оплатить` → `Активировать`.
+  - При сабмите идёт в `/subscriptions/activate-free`, не в `/payments/create`.
+  - Toast `purchase.toast.freeActivated`.
+
+**News:**
+
+- `NewsPost(id, slug @unique, title, summary, contentMd, publishedAt, ...)`
+  + миграция `add_news`. Public list возвращает только `publishedAt != null`,
+  сорт по дате убыв.
+- `NewsModule` — public `GET /api/news`, `GET /api/news/:slug`.
+- `AdminNewsController` — full CRUD под `JwtAccessGuard + RolesGuard + Roles('admin')`,
+  kebab-case slug-валидация. Audit на каждое write-действие.
+- Frontend: `/news` (cards-лента), `/news/:slug` (markdown через общий `<Markdown />`).
+- **Авторизованных редиректим с `/` на `/news`** — `HomePage` смотрит
+  `useAuthStore().status === 'auth'` → `<Navigate to="/news" replace />`.
+- Admin: `/admin/news` со списком + inline-формой создания/редактирования
+  (markdown в textarea; полноценный WYSIWYG-редактор — позже, если понадобится).
+
+**Platform-first онбординг:**
+
+- Новый компонент `PlatformPicker` на главной (после Hero, перед Benefits):
+  3 крупные карточки Windows / Android / iOS. Каждая ведёт в
+  `/auth/register?platform=<key>&guide=<slug>`.
+- Маппинг: Windows → `v2raytun`, Android → `nekobox`, iOS → `hiddify`.
+- `RegisterPage` пробрасывает `?guide=...` в `/auth/login`.
+- `LoginPage` редирект-приоритеты: `?return` → `?guide` (→ `/guides/<slug>`)
+  → `/news`.
+
+**Per-guide footer:**
+
+- В конце каждого `/guides/:slug` две карточки-CTA:
+  - **«Не помогло? Другое приложение»** → ведёт на `/guides` со списком.
+  - **«Связаться с поддержкой»** → внешняя ссылка на `brand.telegramUrl` из
+    `/api/config/public`.
+
+**Admin /admin/plans:**
+
+- Полноценный CRUD UI на существующих эндпоинтах `/api/admin/plans`.
+  Inline-форма создания + edit-диалог. Soft-delete (`isActive=false`).
+- AdminLayout: добавлены пункты `Тарифы` (Layers icon) и `Новости` (Newspaper icon).
+
+**Cleanup (убрал dev/lawyer фразы):**
+
+- Удалена плашка `legal.disclaimer` («документ — рабочий шаблон, проверяется
+  у юриста») со страниц `/legal/*` и сам i18n-ключ.
+- Удалены строки `**⚠️ Документ является шаблоном**` из `seed-legal.ts`
+  (privacy/offer/cookie).
+- `CaptchaField` в dev больше не рендерит плашку «CAPTCHA: dev noop · DEV
+  mode...» — возвращает `null` и тихо эмитит токен для NoopProvider. Ключ
+  `forms.captcha.devNote` удалён.
+- Удалены устаревшие `stubNote` placeholders и `editorNote` плашки в админке
+  (фичи реализованы — placeholder'ы нерелевантны).
+
+**i18n:** новые ru/en ключи — `pages.home.platform.*`, `pages.home.pricingPreview.{freeNote,activate}`,
+`pages.guides.{didntHelp,support}`, `pages.news.*`, `purchase.actions.activate`,
+`purchase.toast.freeActivated`, `admin.nav.{plans,news}`, `admin.plans.*`,
+`admin.news.*`.
+
+**Smoke (verified):**
+
+- `GET /api/plans` → 3 тарифа (Free/Medium/High) с корректными `priceRub`/`trafficLimitGb`.
+- `GET /api/news` → `[]` (постов ещё нет).
+- `POST /api/admin/news` и `POST /api/subscriptions/activate-free` без auth → `401`.
+- Web build clean.
+- Seed pre-existing 4 тарифа деактивировал (`deactivated 4 obsolete plan(s)`).
+
 ## 🔜 Этап 13 — Деплой
 
 - Dockerfile'ы для api и web (multi-stage builds).

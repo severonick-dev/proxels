@@ -1,4 +1,15 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { IsString, MinLength } from 'class-validator';
 import { Throttle, seconds } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { JwtAccessGuard } from '../auth/guards/jwt-access.guard.js';
@@ -6,6 +17,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/strategies/jwt-access.strategy.js';
 import { SubscriptionsService, type SubscriptionWithPlan } from './subscriptions.service.js';
 import { AuditService } from '../audit/audit.service.js';
+
+class ActivateFreeDto {
+  @IsString() @MinLength(1) planId!: string;
+}
 
 /**
  * Read-only API подписок текущего пользователя.
@@ -34,6 +49,26 @@ export class SubscriptionsController {
     @Param('id') id: string,
   ): Promise<SubscriptionWithPlan> {
     return this.subs.findOneForUser(user.id, id);
+  }
+
+  /**
+   * Активация Free-тарифа без YooKassa. Plan должен быть активен и иметь `priceRub == 0`.
+   * Если у юзера уже есть активная подписка — 409 (см. SubscriptionsService.activateFreeForUser).
+   * Throttle: 3/60s — Free выдаётся редко, а спам активациями не имеет смысла.
+   */
+  @Post('activate-free')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 3, ttl: seconds(60) } })
+  async activateFree(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ActivateFreeDto,
+    @Req() req: Request,
+  ) {
+    return this.subs.activateFreeForUser({
+      userId: user.id,
+      planId: dto.planId,
+      ip: req.ip,
+    });
   }
 
   /** Ротация subscription-токена. См. §4a — пользователь может в любой момент инвалидировать ссылку. */

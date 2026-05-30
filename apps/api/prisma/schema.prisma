@@ -327,3 +327,19 @@ model Guide {
 
   @@index([isPublished, sortOrder])
 }
+
+/// Новости Proxels. Редактируется из админки, авторизованные пользователи
+/// видят ленту на главной (после редиректа с `/`).
+model NewsPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  /// Короткое превью для карточки в ленте (1-2 предложения).
+  summary     String
+  contentMd   String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([publishedAt])
+}

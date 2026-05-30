@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,10 @@ type FormValues = z.infer<typeof schema>;
 export default function RegisterPage(): JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  // Если пользователь пришёл из platform-picker — пробрасываем guide
+  // в логин, чтобы после verify+login он попал прямо в свой гайд.
+  const guide = params.get('guide');
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [website, setWebsite] = useState(''); // honeypot
@@ -54,7 +58,9 @@ export default function RegisterPage(): JSX.Element {
         description: t('auth.toast.checkInbox', { email: values.email }),
         duration: 8000,
       });
-      navigate('/auth/login', { replace: true });
+      navigate(guide ? `/auth/login?guide=${encodeURIComponent(guide)}` : '/auth/login', {
+        replace: true,
+      });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -74,7 +80,10 @@ export default function RegisterPage(): JSX.Element {
         title={t('pages.auth.register.title')}
         subtitle={t('pages.auth.register.subtitle')}
         footer={
-          <Link to="/auth/login" className="hover:text-foreground">
+          <Link
+            to={guide ? `/auth/login?guide=${encodeURIComponent(guide)}` : '/auth/login'}
+            className="hover:text-foreground"
+          >
             {t('auth.links.toLogin')}
           </Link>
         }

@@ -104,6 +104,7 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
 
   const effectivePromo = promoState.status === 'ok' ? promoState.data : null;
   const finalAmount = plan ? (effectivePromo?.finalAmountRub ?? plan.priceRub) : 0;
+  const isFree = plan?.priceRub === 0;
 
   const handlePay = async () => {
     if (!plan) return;
@@ -113,12 +114,22 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
     }
     setSubmitting(true);
     try {
+      // Free-тариф — отдельный путь без YooKassa.
+      if (isFree) {
+        await apiRequest('/subscriptions/activate-free', {
+          method: 'POST',
+          body: { planId: plan.id },
+        });
+        toast.success(t('purchase.toast.freeActivated'));
+        onOpenChange(false);
+        navigate('/lk', { replace: true });
+        return;
+      }
+
       const body: Record<string, unknown> = {
         planId: plan.id,
         offerAccepted: true,
       };
-      // Отправляем код только если он валиден (точка истины — backend, но из UX
-      // не имеет смысла слать невалидный код и получать 400).
       if (effectivePromo) body.promoCode = effectivePromo.code;
 
       const res = await apiRequest<CreatePaymentResponse>('/payments/create', {
@@ -127,12 +138,9 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
       });
 
       if (res.bypassed) {
-        // Dev-bypass: автоматически шлём «успех» и редиректим в ЛК.
         await apiRequest(
           `/payments/dev/simulate-succeeded/${encodeURIComponent(extractYooId(res))}`,
-          {
-            method: 'POST',
-          },
+          { method: 'POST' },
         ).catch(() => {
           /* лучшая попытка — если упал, юзер всё равно увидит pending в ЛК */
         });
@@ -142,7 +150,6 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
         return;
       }
 
-      // Боевой YooKassa flow.
       window.location.href = res.confirmationUrl;
     } catch (err) {
       toast.error((err as Error).message);
@@ -185,39 +192,41 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="promo-code" className="text-sm font-medium">
-                {t('purchase.promo.label')}
-              </label>
-              <div className="relative">
-                <Input
-                  id="promo-code"
-                  type="text"
-                  inputMode="text"
-                  autoComplete="off"
-                  maxLength={32}
-                  value={promoInput}
-                  onChange={(e) => setPromoInput(e.target.value)}
-                  placeholder={t('purchase.promo.placeholder')}
-                  className="pr-10 uppercase placeholder:normal-case"
-                  aria-invalid={promoState.status === 'error'}
-                  disabled={submitting}
-                />
-                {promoState.status === 'checking' && (
-                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                )}
-                {promoState.status === 'ok' && (
-                  <CheckCircle2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
+            {!isFree && (
+              <div className="space-y-1.5">
+                <label htmlFor="promo-code" className="text-sm font-medium">
+                  {t('purchase.promo.label')}
+                </label>
+                <div className="relative">
+                  <Input
+                    id="promo-code"
+                    type="text"
+                    inputMode="text"
+                    autoComplete="off"
+                    maxLength={32}
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value)}
+                    placeholder={t('purchase.promo.placeholder')}
+                    className="pr-10 uppercase placeholder:normal-case"
+                    aria-invalid={promoState.status === 'error'}
+                    disabled={submitting}
+                  />
+                  {promoState.status === 'checking' && (
+                    <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                  )}
+                  {promoState.status === 'ok' && (
+                    <CheckCircle2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-500" />
+                  )}
+                </div>
+                {promoState.status === 'error' && (
+                  <div className="text-xs text-destructive">
+                    {t(`purchase.promo.errors.${promoState.reason}`, {
+                      defaultValue: t('purchase.promo.errors.generic'),
+                    })}
+                  </div>
                 )}
               </div>
-              {promoState.status === 'error' && (
-                <div className="text-xs text-destructive">
-                  {t(`purchase.promo.errors.${promoState.reason}`, {
-                    defaultValue: t('purchase.promo.errors.generic'),
-                  })}
-                </div>
-              )}
-            </div>
+            )}
 
             <label className="flex items-start gap-2.5 text-sm">
               <Checkbox
@@ -253,7 +262,7 @@ export function PurchaseDialog({ plan, onOpenChange }: Props): JSX.Element {
               </Button>
               <Button variant="gradient" onClick={handlePay} disabled={submitting || !agreed}>
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {t('purchase.actions.pay')}
+                {isFree ? t('purchase.actions.activate') : t('purchase.actions.pay')}
               </Button>
             </div>
           </>
