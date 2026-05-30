@@ -560,8 +560,8 @@ ru+en.
 **News:**
 
 - `NewsPost(id, slug @unique, title, summary, contentMd, publishedAt, ...)`
-  + миграция `add_news`. Public list возвращает только `publishedAt != null`,
-  сорт по дате убыв.
+  - миграция `add_news`. Public list возвращает только `publishedAt != null`,
+    сорт по дате убыв.
 - `NewsModule` — public `GET /api/news`, `GET /api/news/:slug`.
 - `AdminNewsController` — full CRUD под `JwtAccessGuard + RolesGuard + Roles('admin')`,
   kebab-case slug-валидация. Audit на каждое write-действие.
@@ -618,6 +618,86 @@ ru+en.
 - `POST /api/admin/news` и `POST /api/subscriptions/activate-free` без auth → `401`.
 - Web build clean.
 - Seed pre-existing 4 тарифа деактивировал (`deactivated 4 obsolete plan(s)`).
+
+## 🟡 Этап 13a — Self-update из админки
+
+**Backend:**
+
+- `DeployService` (`apps/api/src/deploy/`):
+  - `getStatus()` — git rev-parse HEAD + branch + commit date + describe-tag,
+    `git config remote.origin.url`. Параллельно ходит в `fetchRemoteTags()`.
+  - `fetchRemoteTags()` — `git ls-remote --tags --refs origin`, парсит
+    semver-теги, сортирует по версии, возвращает `{ latestTag, latestSha, tags[] }`.
+  - `triggerDeploy({ ref })` — валидирует ref regex'ом `^(?:main|v?\d+\.\d+\.\d+(?:-.*)?)$`,
+    проверяет `DEPLOY_ENABLED`, отсутствие параллельного запуска, наличие
+    `DEPLOY_SCRIPT` на диске. Затем `spawn(scriptPath, [ref], { detached, stdio: out.fd })`.
+    Стрим stdout/stderr идёт в `${DEPLOY_LOG_DIR}/deploy-<runId>.log`, плюс
+    `current.log` (symlink на Linux, обычный файл с путём на Windows).
+  - `tailLog(N)` — читает последние N строк из current.log, возвращает
+    `{ running, exitCode, lines[] }`.
+- `AdminDeployController` (`apps/api/src/admin/admin-deploy.controller.ts`):
+  - `GET /api/admin/deploy/status` — текущее состояние.
+  - `POST /api/admin/deploy/refresh` — форс-проверка тегов на origin.
+  - `POST /api/admin/deploy/run { ref, totpCode }` — **требует TOTP-код**.
+    Без 2FA → 403 `{ requires2faSetup: true }`. Неверный код → 400 `{ totpInvalid: true }`.
+  - `GET /api/admin/deploy/log?lines=N` — последние N строк.
+  - Все под `JwtAccessGuard + RolesGuard + Roles('admin')`.
+- ENV: `DEPLOY_ENABLED` (default false), `DEPLOY_SCRIPT` (default
+  `/opt/proxels/infra/deploy/deploy.sh`), `DEPLOY_LOG_DIR` (default
+  `/var/log/proxels-deploy`), `DEPLOY_REPO_DIR` (autodetect от cwd).
+
+**Infra:**
+
+- `infra/deploy/deploy.sh` — основной скрипт self-update. Принимает 1 аргумент
+  (ref), делает `git fetch && checkout && pnpm install && prisma migrate && build
+&& rsync && sudo systemctl restart proxels-api && sudo nginx -s reload`.
+  `set -euo pipefail` + trap на ERR с логированием строки фейла.
+- `infra/deploy/proxels-api.service` — systemd unit для API. Запускает
+  `node dist/main.js` от user=proxels, hardening через NoNewPrivileges,
+  ProtectSystem=full, узкий ReadWritePaths.
+- `infra/deploy/proxels.sudoers` — `proxels ALL=(root) NOPASSWD: /bin/systemctl
+restart proxels-api` + `nginx reload`. **Ни одного `ALL`-правила** — только
+  два конкретных сервиса.
+- `infra/deploy/README.md` — cheat-sheet по установке.
+
+**Frontend:**
+
+- `/admin/deploy` (`apps/web/src/pages/admin/deploy.tsx`):
+  - Карточка «Сейчас установлено»: tag/sha + branch + date + origin URL.
+  - Карточка «Последний релиз на git»: latestTag + sha. Если `hasUpdate` —
+    плашка «Доступна v1.2.3» + кнопка «Обновить».
+  - Список последних 12 тегов — клик → диалог выбора того, что деплоим.
+  - Диалог подтверждения: показывает ref, поле для 6-значного TOTP-кода,
+    кнопка Run. На submit → POST `/api/admin/deploy/run`.
+  - Live-тейл лога: query с `refetchInterval: 2000` пока tailing=true.
+    Авто-скролл вниз, окраска строк (FAILED/ERROR — красный, OK — зелёный).
+  - Если `deployEnabled === false` — кнопки задисейблены, плашка про
+    «доступно только на проде».
+- AdminLayout: nav-item «Деплой» (GitBranch icon).
+- Router: маршрут `/admin/deploy`.
+- i18n ru+en: `admin.nav.deploy`, `admin.deploy.*` (current, remote, tags, log,
+  confirm, toast).
+
+**docs/DEPLOY.md** переписан с полным flow первичной установки + раздел про
+self-update (что происходит при клике, безопасность, релизный цикл).
+
+**Smoke:**
+
+- Все 4 деплой-эндпоинта без auth → 401.
+- API bootstrap: AdminDeployController зарегистрирован, 4 маршрута мапнуты.
+- Web build clean.
+- Локально (Windows, DEPLOY_ENABLED=false): UI показывает текущий статус,
+  кнопка «Обновить» disabled с подсказкой про прод-only.
+
+**TODO для боевого запуска (Этап 13b):**
+
+- Dockerfile'ы для api/web (multi-stage).
+- nginx config + certbot автоматизация.
+- fail2ban правила.
+- pg_dump backup script + ротация.
+- Chunk-split фронта (rollupOptions.manualChunks) — bundle сейчас 1.4 MB.
+- SSR/pre-render публичных страниц для Яндекса.
+- Yandex.Webmaster + Search Console verification.
 
 ## 🔜 Этап 13 — Деплой
 

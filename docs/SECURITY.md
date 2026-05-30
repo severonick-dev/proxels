@@ -360,13 +360,13 @@
 
 - [x] Валидация промокода — последовательная и закрытая по reasons:
       `not_found | inactive | not_yet_valid | expired | limit_reached |
-  plan_not_allowed | per_user_limit_reached`. Передаётся через
+plan_not_allowed | per_user_limit_reached`. Передаётся через
       `BadRequestException({ promoError })`, фильтр прокидывает в тело клиенту.
 - [x] Формат кода проверяется regex `[A-Z0-9_-]{2,32}` ДО запроса в БД —
       кривые/слишком длинные строки получают сразу `not_found`, без I/O и без
       «подсказки» о реальной валидной длине.
 - [x] **CAS на `maxUses`** при инкременте `usedCount` через `updateMany WHERE
-  usedCount < maxUses`. Защищает от over-redeem на гонках. Если CAS не
+usedCount < maxUses`. Защищает от over-redeem на гонках. Если CAS не
       сработал — warn в логе (платёж уже succeeded), бизнес-риск ≤ 1-2 лишние
       редемпции, приемлемо.
 - [x] **Per-user limit** проверяется по `PromoRedemption.userId` (count

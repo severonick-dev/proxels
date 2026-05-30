@@ -1,0 +1,34 @@
+[Unit]
+Description=Proxels API (NestJS)
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=proxels
+Group=proxels
+WorkingDirectory=/opt/proxels/apps/api
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/proxels/.env
+
+# Запускаем собранный bundle (после pnpm --filter @proxels/api build).
+ExecStart=/usr/bin/node dist/main.js
+
+Restart=on-failure
+RestartSec=3s
+StandardOutput=journal
+StandardError=journal
+# pino-pretty не нужен в проде — journald парсит JSON
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+# Разрешаем запись в /var/log/proxels-deploy (логи запусков deploy.sh),
+# /var/www/proxels (куда rsync кладёт фронт), /opt/proxels (git checkout
+# делается отсюда же при self-update).
+ReadWritePaths=/opt/proxels /var/log/proxels-deploy /var/www/proxels
+
+[Install]
+WantedBy=multi-user.target

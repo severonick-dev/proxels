@@ -1,0 +1,10 @@
+# Минимальные права для self-update из админки.
+# Копировать в /etc/sudoers.d/proxels (с режимом 0440 и через visudo -cf).
+#
+# Разрешаем пользователю `proxels` без пароля рестартить только конкретные
+# сервисы — никаких `ALL` команд. Полное `which systemctl` — `/bin/systemctl`
+# на Ubuntu/Debian 22.04+. На старых системах может быть `/usr/bin/systemctl`.
+
+proxels ALL=(root) NOPASSWD: /bin/systemctl restart proxels-api
+proxels ALL=(root) NOPASSWD: /bin/systemctl reload nginx
+proxels ALL=(root) NOPASSWD: /bin/systemctl status proxels-api

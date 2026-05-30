@@ -218,7 +218,8 @@
       "guides": "Guides",
       "news": "News",
       "legal": "Legal docs",
-      "audit": "Audit"
+      "audit": "Audit",
+      "deploy": "Deploy"
     },
     "overview": {
       "title": "Overview",
@@ -307,6 +308,51 @@
         "actor": "Actor"
       },
       "pageInfo": "{{from}}–{{to}} of {{total}}"
+    },
+    "deploy": {
+      "title": "Deploy",
+      "subtitle": "Service version and one-click update from git.",
+      "refresh": "Check for updates",
+      "run": "Update to this version",
+      "upToDate": "You are on the latest release",
+      "disabledHint": "Update button is enabled only on prod with DEPLOY_ENABLED=true",
+      "current": {
+        "title": "Currently installed",
+        "branch": "Branch",
+        "sha": "SHA",
+        "date": "Commit date"
+      },
+      "remote": {
+        "title": "Latest release on git",
+        "newVersion": "New version available: {{tag}}"
+      },
+      "tags": {
+        "title": "Available tags (click to deploy)"
+      },
+      "log": {
+        "title": "Deploy log",
+        "empty": "No log yet — trigger a deploy to see progress.",
+        "tail": "Tail",
+        "start": "Start tailing",
+        "stop": "Stop tailing",
+        "running": "Deploying {{ref}}…",
+        "ok": "Completed successfully",
+        "failed": "Failed (exit {{code}})"
+      },
+      "confirm": {
+        "title": "Confirm deploy",
+        "body": "Update to {{ref}}. The API will restart. Takes 1–3 minutes.",
+        "totpLabel": "2FA code",
+        "totpHint": "Open your authenticator app — we need a 6-digit code to confirm the request is from you.",
+        "cancel": "Cancel",
+        "go": "Run"
+      },
+      "toast": {
+        "refreshed": "Tag list refreshed",
+        "started": "Deploy started — watch the log below",
+        "totpInvalid": "Invalid 2FA code",
+        "need2fa": "Enable 2FA in security settings first"
+      }
     },
     "plans": {
       "title": "Plans",

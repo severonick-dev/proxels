@@ -31,6 +31,7 @@ import AdminGuidesPage from '@/pages/admin/guides';
 import AdminNewsPage from '@/pages/admin/news';
 import AdminLegalPage from '@/pages/admin/legal';
 import AdminAuditPage from '@/pages/admin/audit';
+import AdminDeployPage from '@/pages/admin/deploy';
 import NotFoundPage from '@/pages/not-found';
 
 const routes: RouteObject[] = [
@@ -87,6 +88,7 @@ const routes: RouteObject[] = [
           { path: '/admin/news', element: <AdminNewsPage /> },
           { path: '/admin/legal', element: <AdminLegalPage /> },
           { path: '/admin/audit', element: <AdminAuditPage /> },
+          { path: '/admin/deploy', element: <AdminDeployPage /> },
         ],
       },
 

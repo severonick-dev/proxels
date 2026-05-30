@@ -4,6 +4,7 @@ import {
   BookOpen,
   CreditCard,
   FileText,
+  GitBranch,
   History,
   Layers,
   Newspaper,
@@ -34,6 +35,7 @@ const ITEMS: NavItem[] = [
   { to: '/admin/news', labelKey: 'admin.nav.news', Icon: Newspaper },
   { to: '/admin/legal', labelKey: 'admin.nav.legal', Icon: FileText },
   { to: '/admin/audit', labelKey: 'admin.nav.audit', Icon: ScrollText },
+  { to: '/admin/deploy', labelKey: 'admin.nav.deploy', Icon: GitBranch },
 ];
 
 export function AdminLayout(): JSX.Element {

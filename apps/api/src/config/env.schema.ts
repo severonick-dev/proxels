@@ -105,6 +105,27 @@ export const envSchema = z.object({
   HEALTH_FLAP_UP_THRESHOLD: z.coerce.number().int().min(1).max(20).default(2),
   /** Сколько неудачных подряд для перехода online → offline. */
   HEALTH_FLAP_DOWN_THRESHOLD: z.coerce.number().int().min(1).max(20).default(3),
+
+  // --- Деплой через админку (Этап 13) ---------------------------------------
+  /**
+   * true — кнопка «Обновить» в `/admin/deploy` активна. Включается ТОЛЬКО на
+   * прод-сервере, где есть `DEPLOY_SCRIPT` и sudoers-правило на systemctl
+   * restart. В dev — false, status-эндпоинты работают (для проверки UI),
+   * `run` отвечает 403.
+   */
+  DEPLOY_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .transform((v) => (typeof v === 'string' ? v.toLowerCase() === 'true' : v)),
+  /** Абсолютный путь до deploy-скрипта на сервере. */
+  DEPLOY_SCRIPT: z.string().default('/opt/proxels/infra/deploy/deploy.sh'),
+  /** Куда писать логи деплоя (по одному файлу на запуск + symlink current.log). */
+  DEPLOY_LOG_DIR: z.string().default('/var/log/proxels-deploy'),
+  /**
+   * Корень git-репозитория на сервере. По умолчанию — родительская папка от
+   * `apps/api` (то есть «снизу вверх» от cwd процесса).
+   */
+  DEPLOY_REPO_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
