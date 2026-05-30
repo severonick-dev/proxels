@@ -80,7 +80,7 @@ export const envSchema = z.object({
   OWNER_OGRNIP: z.string().default('324253600103000'),
   OWNER_INN: z.string().default('250501904935'),
   OWNER_ADDRESS: z.string().default('Приморский край, г. Дальнегорск, с. Краснореченский'),
-  CONTACT_EMAIL: z.string().email().default('sergey.korobeynikov@lithops.group'),
+  CONTACT_EMAIL: z.string().email().default('noreply@proxels.ru'),
   CONTACT_TELEGRAM: z.string().url().default('https://t.me/proxels'),
 
   // админка
