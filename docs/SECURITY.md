@@ -69,6 +69,31 @@
 - [x] Тайминговая атака на login mitigated: при отсутствии юзера выполняется фиктивный
       `argon2.verify` против фиксированного хеша, чтобы выровнять время ответа.
 
+## Этап 4 — Plans / Subscriptions / Payments
+
+- [x] Public read `GET /api/plans`, `GET /api/plans/:id` — без auth, отдают только активные.
+- [x] Admin CRUD `/api/admin/plans` — за `JwtAccessGuard + RolesGuard + @Roles('admin')`.
+      Анонимный → 401, обычный user → 403, admin → 200.
+- [x] `RolesGuard` (`apps/api/src/auth/guards/roles.guard.ts`) + декоратор `@Roles(...)`
+      (`apps/api/src/auth/decorators/roles.decorator.ts`). Проверяет `req.user.role`
+      против списка `ROLES_METADATA_KEY`.
+- [x] `ValidationPipe(whitelist + forbidNonWhitelisted)` отсекает неизвестные поля
+      на CRUD-тарифах (verified curl-ом — 400).
+- [x] Soft-delete `DELETE /api/admin/plans/:id` (`isActive=false`) — не теряем историю
+      и не ломаем активные подписки на этот план.
+- [x] Audit-лог (`AuditService` в `apps/api/src/audit/`) пишет `plan.create`,
+      `plan.update` (с дельтой полей), `plan.deactivate` с `actorId` + `ip`. В meta
+      ТОЛЬКО идентификаторы и дельты — никаких ПДн или токенов.
+- [x] `GET /api/subscriptions/me`, `GET /api/payments/me` — read-only под `JwtAccessGuard`,
+      пользователь видит только своё (`where: { userId: req.user.id }`).
+- [x] `PaymentsService.listForUser` использует `select` — отдаёт только безопасные поля
+      (id, amountRub, status, receiptSent, createdAt), без сырых webhook payload.
+- [x] BigInt-поля (`Subscription.trafficUsedBytes`) корректно сериализуются в JSON
+      (глобальный override в `main.ts`).
+- [x] Seed (`apps/api/prisma/seed.ts`) идемпотентный; admin создаётся только при
+      явном задании `SEED_ADMIN_EMAIL` + `SEED_ADMIN_PASSWORD` (для прода — отдельная
+      CLI-команда на Этапе 12, не через seed).
+
 ## Этап 5 — ЮKassa
 
 - [ ] Webhook проверяет подпись (если YooKassa её даёт) **и** IP-источник (whitelist).

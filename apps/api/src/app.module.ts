@@ -16,6 +16,10 @@ import { buildPinoConfig } from './common/logger/pino.config.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CaptchaModule } from './captcha/captcha.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { AuditModule } from './audit/audit.module.js';
+import { PlansModule } from './plans/plans.module.js';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 
 @Module({
   imports: [
@@ -45,7 +49,11 @@ import { MailModule } from './mail/mail.module.js';
     RedisModule,
     CaptchaModule,
     MailModule,
+    AuditModule,
     AuthModule,
+    PlansModule,
+    SubscriptionsModule,
+    PaymentsModule,
     HealthModule,
   ],
   providers: [
