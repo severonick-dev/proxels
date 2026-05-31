@@ -64,13 +64,17 @@ export class XrayService {
     for (const node of onlineNodes) {
       if (haveNodeIds.has(node.id)) continue;
 
-      // MVP: если на ноде проставлен `fallbackUuid` — используем его как общий
-      // UUID для всех подписок (Xray статически принимает только этот UUID на
-      // данной ноде, gRPC AddUser не нужен). Иначе — случайный UUID, который
-      // должен зарегистрироваться через `nodeClient.addUser` (gRPC-режим).
-      const uuid = node.fallbackUuid ?? randomUUID();
+      // По умолчанию выдаём уникальный UUID и регистрируем его на Xray ноде
+      // через gRPC `addUser` (`XRAY_CLIENT=grpc`). Поле `Node.fallbackUuid`
+      // оставляем как ручной override: если задано — используем его и НЕ
+      // зовём addUser (например, чтобы временно подружить с нодой, где gRPC
+      // API ещё не настроен — DEV / экстренный мини-режим).
+      const useFallback = node.fallbackUuid !== null && node.fallbackUuid !== '';
+      const uuid = useFallback ? node.fallbackUuid! : randomUUID();
       try {
-        await this.nodeClient.addUser(node, uuid, subscriptionId);
+        if (!useFallback) {
+          await this.nodeClient.addUser(node, uuid, subscriptionId);
+        }
       } catch (err) {
         // Если конкретная нода отказала — пропускаем её, но продолжаем с остальными.
         // Failover-логика (Этап 11) пометит её degraded/offline.
@@ -100,6 +104,9 @@ export class XrayService {
       include: { node: true },
     });
     for (const client of clients) {
+      // Если на ноде fallback-UUID (общий) — removeUser не зовём: он бы выкинул
+      // всех пользователей на ноде с этим UUID.
+      if (client.node.fallbackUuid && client.node.fallbackUuid !== '') continue;
       try {
         await this.nodeClient.removeUser(client.node, subscriptionId);
       } catch (err) {

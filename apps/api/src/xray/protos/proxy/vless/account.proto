@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package xray.proxy.vless;
+option csharp_namespace = "Xray.Proxy.Vless";
+option go_package = "github.com/xtls/xray-core/proxy/vless";
+
+// VLESS Account — внутренний account-message, который Xray ожидает увидеть
+// в TypedMessage{type='xray.proxy.vless.Account', value=<сериализованный
+// сюда Account>} при AddUserOperation.
+message Account {
+  // UUID клиента, в нашем коде — XrayClient.uuid (= randomUUID на подписку+ноду).
+  string id = 1;
+  // VLESS encryption: всегда "none".
+  string encryption = 2;
+  // Flow: для Reality рекомендованный — "xtls-rprx-vision".
+  string flow = 3;
+}

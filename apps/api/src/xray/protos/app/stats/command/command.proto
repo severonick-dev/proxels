@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package xray.app.stats.command;
+option csharp_namespace = "Xray.App.Stats.Command";
+option go_package = "github.com/xtls/xray-core/app/stats/command";
+
+// Минимальное подмножество StatsService — нам нужно только читать счётчики
+// per-user (uplink/downlink в байтах). Никаких per-destination запросов нет
+// в API Xray в принципе — см. §4a.
+
+message GetStatsRequest {
+  // Pattern имени стата: `user>>>SUB_ID>>>traffic>>>uplink|downlink`.
+  string name = 1;
+  // Если true, обнулить счётчик после чтения. Мы НЕ обнуляем (читаем дельту
+  // на стороне backend, чтобы был аудит).
+  bool reset = 2;
+}
+
+message Stat {
+  string name = 1;
+  int64 value = 2;
+}
+
+message GetStatsResponse {
+  Stat stat = 1;
+}
+
+service StatsService {
+  rpc GetStats(GetStatsRequest) returns (GetStatsResponse) {}
+}

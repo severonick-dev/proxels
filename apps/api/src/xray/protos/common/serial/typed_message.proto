@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package xray.common.serial;
+option csharp_namespace = "Xray.Common.Serial";
+option go_package = "github.com/xtls/xray-core/common/serial";
+option java_package = "com.xray.common.serial";
+
+// TypedMessage — обёртка для «вкладываемых» message'ей (Xray использует её
+// чтобы передавать произвольные protobuf'ы через `Any`-подобный механизм).
+message TypedMessage {
+  // Полное имя типа: например, `xray.proxy.vless.Account`.
+  string type = 1;
+  // Сериализованный protobuf message указанного типа.
+  bytes value = 2;
+}

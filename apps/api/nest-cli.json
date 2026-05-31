@@ -5,6 +5,7 @@
   "entryFile": "main",
   "compilerOptions": {
     "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [{ "include": "xray/protos/**/*.proto", "outDir": "dist", "watchAssets": true }]
   }
 }

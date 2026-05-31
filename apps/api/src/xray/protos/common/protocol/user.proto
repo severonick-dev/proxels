@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package xray.common.protocol;
+option csharp_namespace = "Xray.Common.Protocol";
+option go_package = "github.com/xtls/xray-core/common/protocol";
+
+import "common/serial/typed_message.proto";
+
+message User {
+  uint32 level = 1;
+  // Произвольный идентификатор; в Xray он именно так называется, но мы кладём
+  // сюда `subscriptionId` (не email пользователя — ПДн там нет).
+  string email = 2;
+  xray.common.serial.TypedMessage account = 3;
+}
