@@ -64,7 +64,11 @@ export class XrayService {
     for (const node of onlineNodes) {
       if (haveNodeIds.has(node.id)) continue;
 
-      const uuid = randomUUID();
+      // MVP: если на ноде проставлен `fallbackUuid` — используем его как общий
+      // UUID для всех подписок (Xray статически принимает только этот UUID на
+      // данной ноде, gRPC AddUser не нужен). Иначе — случайный UUID, который
+      // должен зарегистрироваться через `nodeClient.addUser` (gRPC-режим).
+      const uuid = node.fallbackUuid ?? randomUUID();
       try {
         await this.nodeClient.addUser(node, uuid, subscriptionId);
       } catch (err) {

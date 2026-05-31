@@ -33,6 +33,12 @@ class CreateNodeDto {
   @IsString() @MaxLength(255) sni!: string;
   @IsOptional() @IsString() @MaxLength(64) inboundTag?: string;
   @IsOptional() @IsInt() @Min(0) @Max(1000) weight?: number;
+  /**
+   * MVP-режим: статический UUID, прописанный в Xray-конфиге ноды. См. поле
+   * `Node.fallbackUuid` в schema.prisma. Когда задан — все клиенты на этой
+   * ноде получают этот UUID, и gRPC AddUser не требуется.
+   */
+  @IsOptional() @IsString() @MaxLength(64) fallbackUuid?: string;
 }
 
 class UpdateNodeDto {
@@ -47,6 +53,7 @@ class UpdateNodeDto {
   @IsOptional() @IsString() @MaxLength(64) inboundTag?: string;
   @IsOptional() @IsInt() @Min(0) @Max(1000) weight?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsString() @MaxLength(64) fallbackUuid?: string;
 }
 
 /**

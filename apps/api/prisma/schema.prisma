@@ -247,6 +247,11 @@ model Node {
   /// Reality SNI — домен, под который маскируется трафик (например www.microsoft.com).
   sni         String     @default("www.microsoft.com")
   inboundTag  String     @default("vless-reality")
+  /// MVP-режим: общий UUID, статически прописанный в Xray-конфиге ноды. Когда
+  /// задан — `materializeForSubscription` использует его вместо случайного UUID,
+  /// и Xray принимает подключение без gRPC AddUser. На проде с полноценным
+  /// gRPC-клиентом это поле остаётся пустым.
+  fallbackUuid String?
   status      NodeStatus @default(offline)
   weight      Int        @default(100)
   isActive    Boolean    @default(true)
