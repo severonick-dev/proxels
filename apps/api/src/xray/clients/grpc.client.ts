@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { loadPackageDefinition, credentials, type Client } from '@grpc/grpc-js';
 import { loadSync, type PackageDefinition } from '@grpc/proto-loader';
+import * as protobuf from 'protobufjs';
 import * as path from 'node:path';
 import type { Node } from '@prisma/client';
 import type { XrayNodeClient } from '../xray.types.js';
@@ -75,11 +76,6 @@ interface RemoveUserOperationMessage {
   email: string;
 }
 
-interface ProtoType {
-  encode(message: unknown): { finish(): Uint8Array };
-  decode(buffer: Uint8Array): unknown;
-}
-
 interface LoadedPackages {
   HandlerServiceCtor: new (
     addr: string,
@@ -89,9 +85,12 @@ interface LoadedPackages {
     addr: string,
     creds: ReturnType<typeof credentials.createInsecure>,
   ) => StatsServiceClient;
-  AddUserOperationType: ProtoType;
-  RemoveUserOperationType: ProtoType;
-  VlessAccountType: ProtoType;
+  // protobufjs.Type — даёт реальный encode().finish() для message-сериализации.
+  // @grpc/proto-loader не экспозит message-типы (только service-клиенты),
+  // поэтому загружаем те же .proto второй раз через protobufjs.
+  AddUserOperationType: protobuf.Type;
+  RemoveUserOperationType: protobuf.Type;
+  VlessAccountType: protobuf.Type;
 }
 
 function navigate(root: unknown, dottedPath: string): unknown {
@@ -104,6 +103,7 @@ function navigate(root: unknown, dottedPath: string): unknown {
 }
 
 function loadGrpcPackages(): LoadedPackages {
+  // 1. gRPC service clients через @grpc/proto-loader
   const def: PackageDefinition = loadSync(PROTO_FILES, PROTO_OPTS);
   const loaded = loadPackageDefinition(def);
 
@@ -113,23 +113,25 @@ function loadGrpcPackages(): LoadedPackages {
   const StatsServiceCtor = navigate(loaded, 'xray.app.stats.command.StatsService') as
     | LoadedPackages['StatsServiceCtor']
     | undefined;
-  const AddUserOperationType = navigate(loaded, 'xray.app.proxyman.command.AddUserOperation') as
-    | ProtoType
-    | undefined;
-  const RemoveUserOperationType = navigate(
-    loaded,
-    'xray.app.proxyman.command.RemoveUserOperation',
-  ) as ProtoType | undefined;
-  const VlessAccountType = navigate(loaded, 'xray.proxy.vless.Account') as ProtoType | undefined;
 
-  if (
-    !HandlerServiceCtor ||
-    !StatsServiceCtor ||
-    !AddUserOperationType ||
-    !RemoveUserOperationType ||
-    !VlessAccountType
-  ) {
-    throw new Error('Failed to load Xray protos: required services/types not found');
+  // 2. Message types через protobufjs (для encode/decode payload'ов)
+  const root = new protobuf.Root();
+  root.resolvePath = (_origin: string, target: string): string => {
+    // Все import "..."-пути относительны PROTO_INCLUDE.
+    if (path.isAbsolute(target)) return target;
+    return path.join(PROTO_INCLUDE, target);
+  };
+  root.loadSync(
+    PROTO_FILES.map((f) => path.join(PROTO_INCLUDE, f)),
+    { keepCase: true },
+  );
+
+  const AddUserOperationType = root.lookupType('xray.app.proxyman.command.AddUserOperation');
+  const RemoveUserOperationType = root.lookupType('xray.app.proxyman.command.RemoveUserOperation');
+  const VlessAccountType = root.lookupType('xray.proxy.vless.Account');
+
+  if (!HandlerServiceCtor || !StatsServiceCtor) {
+    throw new Error('Failed to load Xray protos: HandlerService/StatsService missing');
   }
 
   return {
