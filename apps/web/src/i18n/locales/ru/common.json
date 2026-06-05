@@ -595,11 +595,15 @@
       },
       "pricingPreview": {
         "eyebrow": "Тарифы",
-        "title": "Три уровня подписки",
-        "subtitle": "Free — попробовать. Medium — каждый день. High — без ограничений.",
+        "title_one": "{{count}} уровень подписки",
+        "title_few": "{{count}} уровня подписки",
+        "title_many": "{{count}} уровней подписки",
+        "subtitle": "Выберите тариф под ваши задачи.",
         "cta": "Все тарифы",
         "perDay": "{{count}} д.",
-        "freeNote": "Бесплатно · {{count}} д.",
+        "freeNote_one": "Бесплатно · {{count}} день",
+        "freeNote_few": "Бесплатно · {{count}} дня",
+        "freeNote_many": "Бесплатно · {{count}} дней",
         "buy": "Купить",
         "activate": "Активировать"
       },

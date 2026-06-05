@@ -46,11 +46,19 @@ export function PricingPreview({ onLoad }: Props): JSX.Element {
 
   const cheapest = plans && plans.length > 0 ? Math.min(...plans.map((p) => p.priceRub)) : null;
 
+  // Динамический заголовок зависит от реального числа активных тарифов в БД.
+  // Тексты вида "{{count}} уровень/уровня/уровней" в локали с pluralization-suffixes.
+  const planCount = plans?.length ?? 0;
+
   return (
     <section className="container py-20 md:py-28">
       <SectionHeading
         eyebrow={t('pages.home.pricingPreview.eyebrow')}
-        title={t('pages.home.pricingPreview.title')}
+        title={
+          planCount > 0
+            ? t('pages.home.pricingPreview.title', { count: planCount })
+            : t('pages.home.pricingPreview.eyebrow')
+        }
         subtitle={t('pages.home.pricingPreview.subtitle')}
       />
 
@@ -132,7 +140,7 @@ function PlanCard({ plan, highlight, idx, t, onBuy }: CardProps): JSX.Element {
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
         {isFree
-          ? t('pages.home.pricingPreview.freeNote')
+          ? t('pages.home.pricingPreview.freeNote', { count: plan.durationDays })
           : t('pages.home.pricingPreview.perDay', { count: plan.durationDays })}
       </div>
 

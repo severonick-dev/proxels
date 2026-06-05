@@ -14,6 +14,7 @@ import { CaptchaService } from '../captcha/captcha.service.js';
 import { MailService } from '../mail/mail.service.js';
 import { UsersService } from '../users/users.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { EnvService } from '../config/env.service.js';
 import { TwoFactorService } from './twofa/twofa.service.js';
 import { generateSecureToken, TokensService, type IssuedRefresh } from './tokens.service.js';
 import type { RegisterDto } from './dto/register.dto.js';
@@ -51,6 +52,7 @@ export class AuthService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly twofa: TwoFactorService,
+    private readonly env: EnvService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -75,18 +77,29 @@ export class AuthService {
     }
 
     const passwordHash = await argon2.hash(dto.password, ARGON2_OPTS);
-    const verifyToken = generateSecureToken(32);
+    const verificationRequired = this.env.get('EMAIL_VERIFICATION_REQUIRED');
+    const verifyToken = verificationRequired ? generateSecureToken(32) : null;
 
     const user = await this.users.create({
       email: dto.email,
       passwordHash,
       locale: dto.locale ?? 'ru',
       emailVerifyToken: verifyToken,
+      // Если верификация отключена (MVP без SMTP) — сразу помечаем email
+      // как подтверждённый, чтобы пользователь мог сразу залогиниться.
+      emailVerified: !verificationRequired,
       consentPdnVersion: CONSENT_VERSIONS.privacy,
     });
 
-    await this.mail.sendEmailVerification(user.email, verifyToken);
-    this.log.log({ userId: user.id }, 'User registered, verification email queued');
+    if (verificationRequired && verifyToken) {
+      await this.mail.sendEmailVerification(user.email, verifyToken);
+      this.log.log({ userId: user.id }, 'User registered, verification email queued');
+    } else {
+      this.log.log(
+        { userId: user.id },
+        'User registered, auto-verified (EMAIL_VERIFICATION_REQUIRED=false)',
+      );
+    }
 
     return { pendingVerification: true };
   }
@@ -134,7 +147,7 @@ export class AuthService {
     const ok = await argon2.verify(user.passwordHash, dto.password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
-    if (!user.emailVerified) {
+    if (this.env.get('EMAIL_VERIFICATION_REQUIRED') && !user.emailVerified) {
       throw new ForbiddenException('Email not verified');
     }
 

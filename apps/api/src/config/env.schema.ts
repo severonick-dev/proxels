@@ -52,6 +52,17 @@ export const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
+  /**
+   * Если `false` — при регистрации пользователь сразу emailVerified=true,
+   * email-verify токен не генерируется, письмо не отправляется (MailService
+   * silent). Login не проверяет emailVerified. Удобно для MVP-запуска без SMTP.
+   * В production, когда настроите SMTP с SPF/DKIM — поменяйте на `true`.
+   */
+  EMAIL_VERIFICATION_REQUIRED: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'string' ? v.toLowerCase() === 'true' : v)),
+
   // юkassa: при пустом YOOKASSA_SHOP_ID — dev-bypass (не вызывает API, создаёт
   // локальный платёж и фейковый confirmation_url для отладки). В production пустые
   // shopId/secretKey приведут к ошибке при попытке создать платёж.

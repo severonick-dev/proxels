@@ -52,7 +52,9 @@ export class UsersService {
     passwordHash: string;
     locale: Locale;
     role?: UserRole;
-    emailVerifyToken: string;
+    emailVerifyToken: string | null;
+    /** Если задано — используется как есть. Иначе по умолчанию false. */
+    emailVerified?: boolean;
     consentPdnVersion: string;
   }): Promise<User> {
     return this.prisma.user.create({
@@ -62,7 +64,7 @@ export class UsersService {
         locale: data.locale,
         role: data.role ?? UserRole.user,
         emailVerifyToken: data.emailVerifyToken,
-        emailVerified: false,
+        emailVerified: data.emailVerified ?? false,
         consentPdnAt: new Date(),
         consentPdnVersion: data.consentPdnVersion,
       },

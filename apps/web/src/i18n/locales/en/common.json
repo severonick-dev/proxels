@@ -594,11 +594,13 @@
       },
       "pricingPreview": {
         "eyebrow": "Pricing",
-        "title": "Three subscription tiers",
-        "subtitle": "Free — try it out. Medium — daily use. High — no limits.",
+        "title_one": "{{count}} subscription tier",
+        "title_other": "{{count}} subscription tiers",
+        "subtitle": "Pick a plan that fits your needs.",
         "cta": "All plans",
         "perDay": "{{count}} d.",
-        "freeNote": "Free · {{count}} d.",
+        "freeNote_one": "Free · {{count}} day",
+        "freeNote_other": "Free · {{count}} days",
         "buy": "Buy",
         "activate": "Activate"
       },
