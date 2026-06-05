@@ -16,11 +16,16 @@ const captchaProvider: Provider = {
 
     if (provider === 'none') {
       if (env.isProduction) {
-        throw new Error(
-          'CAPTCHA_PROVIDER=none is not allowed in production. Configure yandex or hcaptcha.',
+        // Раньше тут был throw — но это блокирует первый MVP-запуск, когда
+        // капчи ещё нет, а зарегистрироваться нужно (например, для Free-тарифа
+        // без оплаты). Релакшу до жёсткого WARN — сервис стартует, но в логе
+        // чётко видно, что антибот выключен.
+        log.warn(
+          '!!! CAPTCHA_PROVIDER=none in production. Antibot is OFF. Configure yandex or hcaptcha ASAP. !!!',
         );
+      } else {
+        log.warn('Captcha disabled (CAPTCHA_PROVIDER=none). DEV ONLY.');
       }
-      log.warn('Captcha disabled (CAPTCHA_PROVIDER=none). DEV ONLY.');
       return new NoopCaptchaProvider();
     }
 
