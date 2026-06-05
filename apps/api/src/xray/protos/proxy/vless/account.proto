@@ -7,11 +7,16 @@ option go_package = "github.com/xtls/xray-core/proxy/vless";
 // VLESS Account — внутренний account-message, который Xray ожидает увидеть
 // в TypedMessage{type='xray.proxy.vless.Account', value=<сериализованный
 // сюда Account>} при AddUserOperation.
+//
+// ВАЖНО: field numbers должны точно совпадать с xtls/xray-core/proxy/vless/account.proto.
+// Если перепутать flow и encryption — Xray примет юзера, но с flow="none"
+// (вместо xtls-rprx-vision), и Reality-handshake будет падать с
+// "account ... is not able to use the flow xtls-rprx-vision".
 message Account {
   // UUID клиента, в нашем коде — XrayClient.uuid (= randomUUID на подписку+ноду).
   string id = 1;
-  // VLESS encryption: всегда "none".
-  string encryption = 2;
-  // Flow: для Reality рекомендованный — "xtls-rprx-vision".
-  string flow = 3;
+  // Flow: для Reality рекомендованный — "xtls-rprx-vision". Field number = 2.
+  string flow = 2;
+  // VLESS encryption: всегда "none". Field number = 3.
+  string encryption = 3;
 }
