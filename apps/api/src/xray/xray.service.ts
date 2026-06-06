@@ -97,6 +97,84 @@ export class XrayService {
     return [...existing, ...created];
   }
 
+  /**
+   * Перерегистрировать всех активных юзеров на конкретной ноде в её Xray.
+   *
+   * Use cases:
+   * - Xray на ноде был перезапущен (in-memory clients потеряны).
+   * - У ноды сменился IP (host обновлён через PATCH /admin/nodes/:id) — нужно
+   *   пересоздать клиентов в новом инстансе Xray.
+   *
+   * UUID'ы из БД переиспользуем — клиентам НЕ нужно перевыпускать подписки.
+   * RemoveUser пытаемся вызывать перед AddUser (на случай если юзер ещё есть
+   * в памяти после graceful reload) — но ошибки игнорируем.
+   */
+  async reissueOnNode(nodeId: string): Promise<{ ok: number; failed: number; total: number }> {
+    const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
+    if (!node) {
+      this.log.warn({ nodeId }, 'reissueOnNode: node not found');
+      return { ok: 0, failed: 0, total: 0 };
+    }
+    if (node.fallbackUuid && node.fallbackUuid !== '') {
+      // На ноде в MVP-режиме (общий fallbackUuid) перезаливать нечего —
+      // юзеры зашиты прямо в xray-config, gRPC не используется.
+      this.log.log({ nodeId, nodeName: node.name }, 'reissueOnNode: skipped (fallbackUuid mode)');
+      return { ok: 0, failed: 0, total: 0 };
+    }
+
+    const clients = await this.prisma.xrayClient.findMany({
+      where: {
+        nodeId,
+        subscription: { status: 'active', endAt: { gt: new Date() } },
+      },
+    });
+
+    let ok = 0;
+    let failed = 0;
+    for (const client of clients) {
+      try {
+        try {
+          await this.nodeClient.removeUser(node, client.subscriptionId);
+        } catch {
+          // Юзера в Xray и не было — это и есть наш кейс. Молча идём дальше.
+        }
+        await this.nodeClient.addUser(node, client.uuid, client.subscriptionId);
+        ok++;
+      } catch (err) {
+        failed++;
+        this.log.error(
+          { nodeId, subId: client.subscriptionId, err: (err as Error).message },
+          'reissueOnNode: addUser failed',
+        );
+      }
+    }
+
+    this.log.log(
+      { nodeId, nodeName: node.name, ok, failed, total: clients.length },
+      'reissueOnNode complete',
+    );
+    return { ok, failed, total: clients.length };
+  }
+
+  /**
+   * То же самое, но по всем активным нодам. Полезно после массового обновления
+   * (рестарт всего парка, миграция Xray-версии, и т.п.).
+   */
+  async reissueAll(): Promise<
+    { nodeId: string; nodeName: string; ok: number; failed: number; total: number }[]
+  > {
+    const nodes = await this.prisma.node.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+    const results = [];
+    for (const node of nodes) {
+      const r = await this.reissueOnNode(node.id);
+      results.push({ nodeId: node.id, nodeName: node.name, ...r });
+    }
+    return results;
+  }
+
   /** При удалении/отмене подписки — снести клиентов со всех нод. */
   async cleanupForSubscription(subscriptionId: string): Promise<void> {
     const clients = await this.prisma.xrayClient.findMany({

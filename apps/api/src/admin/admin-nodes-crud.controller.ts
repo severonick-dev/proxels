@@ -21,6 +21,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/strategies/jwt-access.strategy.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { XrayService } from '../xray/xray.service.js';
 
 class CreateNodeDto {
   @IsString() @MaxLength(64) name!: string;
@@ -68,6 +69,7 @@ export class AdminNodesCrudController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly xray: XrayService,
   ) {}
 
   @Post()
@@ -111,6 +113,51 @@ export class AdminNodesCrudController {
       meta: { nodeId: id, changed: Object.keys(dto) },
     });
     return node;
+  }
+
+  /**
+   * Перезалить всех активных юзеров на ноде в её Xray.
+   * Использовать ПОСЛЕ:
+   *   - рестарта Xray на ноде (in-memory clients потеряны);
+   *   - смены IP ноды (host обновлён, в новом Xray нет клиентов);
+   *   - смены реалити-ключей.
+   * UUID'ы переиспользуем — клиентам перевыпускать подписку НЕ нужно.
+   */
+  @Post(':id/reissue')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: seconds(60) } })
+  async reissue(
+    @Param('id') id: string,
+    @CurrentUser() admin: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const existing = await this.prisma.node.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Node not found');
+    const result = await this.xray.reissueOnNode(id);
+    await this.audit.record({
+      action: 'admin.node.reissue',
+      actorId: admin.id,
+      ip: req.ip,
+      meta: { nodeId: id, name: existing.name, ...result },
+    });
+    return result;
+  }
+
+  /**
+   * То же самое для всех активных нод. Полезно после массового рестарта.
+   */
+  @Post('reissue-all')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 2, ttl: seconds(60) } })
+  async reissueAll(@CurrentUser() admin: AuthenticatedUser, @Req() req: Request) {
+    const results = await this.xray.reissueAll();
+    await this.audit.record({
+      action: 'admin.node.reissue-all',
+      actorId: admin.id,
+      ip: req.ip,
+      meta: { count: results.length, results },
+    });
+    return { results };
   }
 
   @Delete(':id')
