@@ -16,11 +16,13 @@ export interface XrayNodeClient {
    * Добавить клиента в инбаунд `inboundTag` ноды.
    * `identifier` — то, что Xray сохранит в поле `email`. Используем `subscription.id`,
    *  чтобы по идентификатору можно было найти клиента, но он не содержит ПДн.
+   * `inboundTag` — опциональный override (по умолчанию `node.inboundTag`).
+   * Используется для добавления юзера в дополнительные инбаунды (напр. WS+CDN).
    */
-  addUser(node: Node, uuid: string, identifier: string): Promise<void>;
+  addUser(node: Node, uuid: string, identifier: string, inboundTag?: string): Promise<void>;
 
-  /** Удалить клиента из инбаунда ноды. */
-  removeUser(node: Node, identifier: string): Promise<void>;
+  /** Удалить клиента из инбаунда ноды. По умолчанию `node.inboundTag`. */
+  removeUser(node: Node, identifier: string, inboundTag?: string): Promise<void>;
 
   /**
    * Получить агрегированный трафик клиента (uplink + downlink в байтах).

@@ -688,6 +688,114 @@ VLESS Reality сам по себе сильно сопротивляется DPI
    ниже скорость + они видят SNI клиента. Делать как опциональный второй
    inbound на каждой ноде, не как основной.
 
+### 6.5 Второй транспорт: VLESS+WebSocket через Cloudflare
+
+**Зачем.** Reality — быстрый прямой коннект на DE-IP, но если этот IP попал
+под РКН DPI — Reality не помогает (RST инжектится до TLS-handshake). WS+CF
+прячет реальный IP DE-ноды за Cloudflare-edge: клиент видит CF-IP, DPI видит
+обычный HTTPS-трафик к Cloudflare. В подписке клиента **обе ссылки**:
+Reality (быстрая) + WS+CF (живучая) — Hiddify/Nekobox переключается сам.
+
+Это НЕ заменяет Reality, это **второй URI на ту же ноду**. На ноде второй
+Xray inbound, на клиенте две VLESS-ссылки на одну подписку.
+
+**Что понадобится.**
+
+- Cloudflare-аккаунт (free), домен `proxels.ru` уже на Cloudflare NS.
+- В Cloudflare добавлены A-записи `de1.proxels.ru → <DE-1 IP>` и
+  `de2.proxels.ru → <DE-2 IP>` — обе **с включённым proxy** (оранжевое облако).
+- SSL/TLS mode у зоны: **Flexible** (CF↔клиент по HTTPS, CF↔origin по HTTP).
+  Это OK: VLESS payload внутри WS уже не сенситивен к снифу CF.
+
+**На DE-ноде** (по одному разу на каждую):
+
+1. Открыть порт 80 в ufw (CF будет коннектиться сюда):
+   ```bash
+   ufw allow 80/tcp comment 'Xray WS for Cloudflare'
+   ufw reload
+   ```
+
+2. Добавить второй inbound в `/usr/local/etc/xray/config.json` рядом с
+   существующим `vless-reality`:
+   ```jsonc
+   {
+     "tag": "vless-ws",
+     "listen": "0.0.0.0",
+     "port": 80,
+     "protocol": "vless",
+     "settings": {
+       "clients": [
+         {
+           "id": "<PLACEHOLDER_UUID>",
+           "email": "ws-placeholder",
+           "level": 0
+         }
+       ],
+       "decryption": "none"
+     },
+     "streamSettings": {
+       "network": "ws",
+       "wsSettings": {
+         "path": "/proxy",
+         "headers": {}
+       }
+     },
+     "sniffing": { "enabled": false }
+   }
+   ```
+   > `flow` у WS-клиентов **отсутствует** — `xtls-rprx-vision` работает
+   > только в TCP+Reality.
+
+3. Рестарт Xray:
+   ```bash
+   systemctl restart xray
+   journalctl -u xray -n 30 --no-pager   # без ошибок?
+   ```
+
+4. Быстрая проверка изнутри ноды:
+   ```bash
+   curl -i -H 'Upgrade: websocket' -H 'Connection: Upgrade' http://localhost:80/proxy
+   # Должен ответить 400/426 (Xray ждёт VLESS payload), а не 404 — значит path рабочий.
+   ```
+
+**На Cloudflare** (один раз на зону):
+
+5. SSL/TLS → Overview → **Flexible**.
+6. Network → WebSockets → **On** (по умолчанию включено на free).
+7. DNS → A `de1.proxels.ru` → `<DE-1 IP>`, proxy **on**. Аналогично `de2`.
+
+**На RF (backend)** — обновить ноду через админ API:
+
+```bash
+TOKEN="..."
+NODE_ID="<id de-1>"
+
+curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  http://62.109.31.233/api/admin/nodes/$NODE_ID -d '{
+    "cdnHost": "de1.proxels.ru",
+    "cdnPath": "/proxy",
+    "wsInboundTag": "vless-ws"
+  }'
+
+# Перезалить юзеров — теперь и в Reality, и в WS inbound:
+curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+  http://62.109.31.233/api/admin/nodes/$NODE_ID/reissue
+```
+
+**Проверка на клиенте.**
+
+В Nekobox/Hiddify обновить подписку → теперь в списке должно появиться
+**два сервера** на одну ноду: `Proxels · de-1` (Reality) и
+`Proxels · de-1 · CDN` (WS через CF). Подключитесь к каждому по очереди:
+
+- Reality должен дать lower latency (прямо в DE).
+- CDN — выше latency (через CF), но IP видно как Cloudflare.
+
+Если Reality режется DPI — переключаетесь на CDN, всё работает.
+
+> **Стоимость:** CF Free достаточно. Лимит на WS-сообщение 100 MB на free —
+> для VLESS-туннеля это неощутимо (фреймы постоянно ротируются).
+
 ### Чек-лист «у клиентов перестал работать VPN»
 
 ```bash

@@ -252,6 +252,15 @@ model Node {
   /// и Xray принимает подключение без gRPC AddUser. На проде с полноценным
   /// gRPC-клиентом это поле остаётся пустым.
   fallbackUuid String?
+
+  /// Опциональный второй транспорт — VLESS over WebSocket за Cloudflare.
+  /// Клиент видит cdnHost (CF-proxied домен), DPI и РКН видят только трафик
+  /// к Cloudflare. Если все три поля заданы — `materializeForSubscription`
+  /// дополнительно вызовет gRPC AddUser на `wsInboundTag` и добавит в подписку
+  /// второй VLESS URI с network=ws.
+  cdnHost      String?
+  cdnPath      String?
+  wsInboundTag String?
   status      NodeStatus @default(offline)
   weight      Int        @default(100)
   isActive    Boolean    @default(true)

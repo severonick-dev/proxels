@@ -3,7 +3,7 @@ import { SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { XrayService } from '../xray/xray.service.js';
 import { NodesHealthService } from '../health-checks/nodes-health.service.js';
-import { buildVlessRealityUri } from './vless-uri.js';
+import { buildVlessUris } from './vless-uri.js';
 
 export interface SubResponse {
   /** Сам список URI (для отладки и админ-просмотра). */
@@ -64,7 +64,7 @@ export class SubService {
       this.log.warn({ subscriptionId: sub.id }, 'No online nodes for subscription');
     }
 
-    const uris = clients.map((c) => buildVlessRealityUri(c));
+    const uris = clients.flatMap((c) => buildVlessUris(c));
     const base64Payload = Buffer.from(uris.join('\n'), 'utf-8').toString('base64');
 
     const expireUnix = Math.floor(sub.endAt.getTime() / 1000);

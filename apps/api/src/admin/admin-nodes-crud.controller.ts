@@ -40,6 +40,12 @@ class CreateNodeDto {
    * ноде получают этот UUID, и gRPC AddUser не требуется.
    */
   @IsOptional() @IsString() @MaxLength(64) fallbackUuid?: string;
+  /** CF-proxied домен для второго (WS) канала. Например, `de1.proxels.ru`. */
+  @IsOptional() @IsString() @MaxLength(255) cdnHost?: string;
+  /** WS path для второго канала. Должен совпадать с `path` в Xray inbound. */
+  @IsOptional() @IsString() @MaxLength(255) cdnPath?: string;
+  /** Тег второго inbound в Xray-конфиге ноды. Обычно `vless-ws`. */
+  @IsOptional() @IsString() @MaxLength(64) wsInboundTag?: string;
 }
 
 class UpdateNodeDto {
@@ -55,6 +61,9 @@ class UpdateNodeDto {
   @IsOptional() @IsInt() @Min(0) @Max(1000) weight?: number;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsString() @MaxLength(64) fallbackUuid?: string;
+  @IsOptional() @IsString() @MaxLength(255) cdnHost?: string;
+  @IsOptional() @IsString() @MaxLength(255) cdnPath?: string;
+  @IsOptional() @IsString() @MaxLength(64) wsInboundTag?: string;
 }
 
 /**

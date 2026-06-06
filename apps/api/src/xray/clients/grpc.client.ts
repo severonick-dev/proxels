@@ -204,7 +204,8 @@ export class GrpcXrayNodeClient implements XrayNodeClient {
 
   // -----------------------------------------------------------------
 
-  async addUser(node: Node, uuid: string, identifier: string): Promise<void> {
+  async addUser(node: Node, uuid: string, identifier: string, inboundTag?: string): Promise<void> {
+    const tag = inboundTag ?? node.inboundTag;
     const { AddUserOperationType, VlessAccountType } = pkgs();
 
     // 1. Сериализуем VLESS Account
@@ -228,26 +229,30 @@ export class GrpcXrayNodeClient implements XrayNodeClient {
     const opBytes = Buffer.from(AddUserOperationType.encode(opMsg).finish());
 
     // 3. Завернуть operation в TypedMessage и дёрнуть AlterInbound
-    await this.callAlterInbound(node, {
+    await this.callAlterInbound(node, tag, {
       type: 'xray.app.proxyman.command.AddUserOperation',
       value: opBytes,
     });
 
-    this.log.log({ nodeName: node.name, identifier, uuidPrefix: uuid.slice(0, 8) }, 'AddUser ok');
+    this.log.log(
+      { nodeName: node.name, tag, identifier, uuidPrefix: uuid.slice(0, 8) },
+      'AddUser ok',
+    );
   }
 
-  async removeUser(node: Node, identifier: string): Promise<void> {
+  async removeUser(node: Node, identifier: string, inboundTag?: string): Promise<void> {
+    const tag = inboundTag ?? node.inboundTag;
     const { RemoveUserOperationType } = pkgs();
 
     const opMsg: RemoveUserOperationMessage = { email: identifier };
     const opBytes = Buffer.from(RemoveUserOperationType.encode(opMsg).finish());
 
-    await this.callAlterInbound(node, {
+    await this.callAlterInbound(node, tag, {
       type: 'xray.app.proxyman.command.RemoveUserOperation',
       value: opBytes,
     });
 
-    this.log.log({ nodeName: node.name, identifier }, 'RemoveUser ok');
+    this.log.log({ nodeName: node.name, tag, identifier }, 'RemoveUser ok');
   }
 
   // -----------------------------------------------------------------
@@ -274,10 +279,10 @@ export class GrpcXrayNodeClient implements XrayNodeClient {
 
   // -----------------------------------------------------------------
 
-  private callAlterInbound(node: Node, operation: TypedMessage): Promise<void> {
+  private callAlterInbound(node: Node, tag: string, operation: TypedMessage): Promise<void> {
     return new Promise((resolve, reject) => {
       const client = handlerFor(node.xrayApiAddr);
-      const req: AlterInboundRequest = { tag: node.inboundTag, operation };
+      const req: AlterInboundRequest = { tag, operation };
 
       let settled = false;
       const timer = setTimeout(() => {

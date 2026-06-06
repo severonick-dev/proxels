@@ -5,6 +5,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { XRAY_NODE_CLIENT, type XrayNodeClient } from './xray.types.js';
 
 /**
+ * У ноды настроен опциональный CDN-канал (VLESS+WS через Cloudflare), если
+ * все три поля заданы: cdnHost (домен за CF), cdnPath (WS path) и wsInboundTag
+ * (имя второго inbound в Xray-конфиге).
+ */
+export function nodeHasCdn(node: Node): boolean {
+  return !!(node.cdnHost && node.cdnPath && node.wsInboundTag);
+}
+
+/**
  * Оркестратор работы с множеством нод: создание/удаление XrayClient'ов
  * на всех живых нодах подписки + дёрганье `XrayNodeClient` для добавления
  * клиента в реальный Xray.
@@ -85,6 +94,20 @@ export class XrayService {
         continue;
       }
 
+      // Дополнительный WS+CDN-канал на той же ноде. Best-effort: если он не
+      // настроен в Xray-конфиге или CF/DNS ещё не подняты — Reality-канал уже
+      // работает, не валим всю подписку.
+      if (!useFallback && nodeHasCdn(node)) {
+        try {
+          await this.nodeClient.addUser(node, uuid, subscriptionId, node.wsInboundTag!);
+        } catch (err) {
+          this.log.warn(
+            { nodeId: node.id, name: node.name, err: (err as Error).message },
+            'Failed to add user on WS inbound (Reality already added, continuing)',
+          );
+        }
+      }
+
       const row = await tx.xrayClient.create({
         data: { subscriptionId, nodeId: node.id, uuid },
         include: { node: true },
@@ -131,6 +154,7 @@ export class XrayService {
 
     let ok = 0;
     let failed = 0;
+    const hasCdn = nodeHasCdn(node);
     for (const client of clients) {
       try {
         try {
@@ -138,7 +162,31 @@ export class XrayService {
         } catch {
           // Юзера в Xray и не было — это и есть наш кейс. Молча идём дальше.
         }
+        if (hasCdn) {
+          try {
+            await this.nodeClient.removeUser(node, client.subscriptionId, node.wsInboundTag!);
+          } catch {
+            // То же самое для WS-инбаунда.
+          }
+        }
         await this.nodeClient.addUser(node, client.uuid, client.subscriptionId);
+        if (hasCdn) {
+          try {
+            await this.nodeClient.addUser(
+              node,
+              client.uuid,
+              client.subscriptionId,
+              node.wsInboundTag!,
+            );
+          } catch (err) {
+            // Reality-канал уже накатили — для WS пишем warning и считаем reissue
+            // успешным. Полноценный fix — починить Xray-конфиг ноды.
+            this.log.warn(
+              { nodeId, subId: client.subscriptionId, err: (err as Error).message },
+              'reissueOnNode: WS addUser failed (Reality reissued ok)',
+            );
+          }
+        }
         ok++;
       } catch (err) {
         failed++;
@@ -192,6 +240,20 @@ export class XrayService {
           { nodeId: client.nodeId, err: (err as Error).message },
           'removeUser failed (continuing)',
         );
+      }
+      if (nodeHasCdn(client.node)) {
+        try {
+          await this.nodeClient.removeUser(
+            client.node,
+            subscriptionId,
+            client.node.wsInboundTag!,
+          );
+        } catch (err) {
+          this.log.warn(
+            { nodeId: client.nodeId, err: (err as Error).message },
+            'removeUser on WS failed (continuing)',
+          );
+        }
       }
     }
     await this.prisma.xrayClient.deleteMany({ where: { subscriptionId } });
