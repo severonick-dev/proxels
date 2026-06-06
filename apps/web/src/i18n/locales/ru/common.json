@@ -303,15 +303,60 @@
       "title": "Ноды",
       "subtitle": "Online: {{online}} / {{total}}. Health-check автоматический, обновление каждые 10 сек.",
       "subtitleLoading": "Загрузка…",
+      "add": "Добавить ноду",
+      "cancel": "Отмена",
+      "create": "Создать",
+      "save": "Сохранить",
+      "confirmDeactivate": "Деактивировать ноду «{{name}}»? Она будет помечена offline и исключена из подписок.",
+      "confirmReissue": "Перезалить всех активных юзеров на ноде «{{name}}» через gRPC? UUID'ы из БД сохранятся, клиентам подписку обновлять не нужно.",
       "cols": {
         "name": "Имя",
         "host": "Host",
         "status": "Статус",
         "weight": "Вес",
-        "health": "Проверки",
-        "lastProbe": "Последняя проверка"
+        "lastProbe": "Последняя проверка",
+        "actions": "Действия"
       },
-      "crudNote": "Добавление/редактирование/удаление нод — через REST: POST /api/admin/nodes, PATCH /api/admin/nodes/:id, DELETE /api/admin/nodes/:id. UI-формы дополним в следующей итерации."
+      "actions": {
+        "edit": "Редактировать",
+        "deactivate": "Деактивировать",
+        "reissue": "Перезалить юзеров (после рестарта Xray)"
+      },
+      "fields": {
+        "name": "Имя ноды",
+        "country": "Страна (ISO)",
+        "host": "Публичный host/IP",
+        "port": "Порт VLESS",
+        "xrayApiAddr": "gRPC API адрес (host:port)",
+        "xrayApiAddrHint": "Backend на RF коннектится сюда для AddUser/RemoveUser. Обычно :10085, доступ закрыт ufw кроме IP RF.",
+        "publicKey": "Reality public key",
+        "shortId": "Reality short ID",
+        "sni": "SNI (маскировочный домен)",
+        "inboundTag": "Reality inbound tag",
+        "weight": "Вес (для будущего балансера)",
+        "cdnHost": "CDN host (CF-proxied домен)",
+        "cdnPath": "WS path",
+        "wsInboundTag": "WS inbound tag",
+        "fallbackUuid": "Fallback UUID (MVP-режим)",
+        "fallbackUuidHint": "Если задан — backend не зовёт gRPC AddUser, все клиенты на ноде получают этот UUID. Аварийный режим, на проде оставить пустым.",
+        "active": "Активна (включена в подписки)"
+      },
+      "sections": {
+        "reality": "Reality транспорт",
+        "cdn": "Опционально: WS+CDN (Cloudflare)",
+        "cdnHint": "Если задать все три поля — в подписку добавится второй VLESS URI через Cloudflare-фронт. Требует поднятый ws-inbound в Xray и CF-proxy DNS-запись.",
+        "advanced": "Дополнительно"
+      },
+      "dialog": {
+        "createTitle": "Новая нода",
+        "editTitle": "Редактировать ноду"
+      },
+      "toast": {
+        "created": "Нода создана",
+        "updated": "Нода обновлена",
+        "deactivated": "Нода деактивирована",
+        "reissued": "Перезалито: {{ok}} из {{total}}"
+      }
     },
     "guides": {
       "title": "Гайды",

@@ -265,15 +265,60 @@
       "title": "Nodes",
       "subtitle": "Online: {{online}} / {{total}}. Auto health-check refreshes every 10s.",
       "subtitleLoading": "Loading…",
+      "add": "Add node",
+      "cancel": "Cancel",
+      "create": "Create",
+      "save": "Save",
+      "confirmDeactivate": "Deactivate node \"{{name}}\"? It will be marked offline and excluded from subscriptions.",
+      "confirmReissue": "Re-issue all active users on \"{{name}}\" via gRPC? UUIDs are reused from the DB, so clients don't need to refresh.",
       "cols": {
         "name": "Name",
         "host": "Host",
         "status": "Status",
         "weight": "Weight",
-        "health": "Checks",
-        "lastProbe": "Last probe"
+        "lastProbe": "Last probe",
+        "actions": "Actions"
       },
-      "crudNote": "Add/edit/delete via REST: POST /api/admin/nodes, PATCH /api/admin/nodes/:id, DELETE /api/admin/nodes/:id. UI forms — next iteration."
+      "actions": {
+        "edit": "Edit",
+        "deactivate": "Deactivate",
+        "reissue": "Re-issue users (after Xray restart)"
+      },
+      "fields": {
+        "name": "Node name",
+        "country": "Country (ISO)",
+        "host": "Public host/IP",
+        "port": "VLESS port",
+        "xrayApiAddr": "gRPC API address (host:port)",
+        "xrayApiAddrHint": "Backend on RF connects here for AddUser/RemoveUser. Usually :10085, firewalled to RF IP only.",
+        "publicKey": "Reality public key",
+        "shortId": "Reality short ID",
+        "sni": "SNI (camouflage domain)",
+        "inboundTag": "Reality inbound tag",
+        "weight": "Weight (future balancer)",
+        "cdnHost": "CDN host (CF-proxied)",
+        "cdnPath": "WS path",
+        "wsInboundTag": "WS inbound tag",
+        "fallbackUuid": "Fallback UUID (MVP mode)",
+        "fallbackUuidHint": "If set, backend skips gRPC AddUser — all clients on this node get this UUID. Emergency mode, leave empty in production.",
+        "active": "Active (used in subscriptions)"
+      },
+      "sections": {
+        "reality": "Reality transport",
+        "cdn": "Optional: WS+CDN (Cloudflare)",
+        "cdnHint": "When all three are set, the subscription emits a second VLESS URI through a CF-proxied host. Requires a ws-inbound in Xray and a CF-proxy DNS record.",
+        "advanced": "Advanced"
+      },
+      "dialog": {
+        "createTitle": "New node",
+        "editTitle": "Edit node"
+      },
+      "toast": {
+        "created": "Node created",
+        "updated": "Node updated",
+        "deactivated": "Node deactivated",
+        "reissued": "Re-issued: {{ok}} of {{total}}"
+      }
     },
     "guides": {
       "title": "Guides",
