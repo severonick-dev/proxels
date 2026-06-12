@@ -73,9 +73,28 @@ const STATUS_COLOR: Record<NodeRow['status'], string> = {
   degraded: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500',
 };
 
+interface HealthEntry {
+  latencyMs: number | null;
+  lastProbeOk: boolean;
+  lastProbeAt: string;
+}
+
+interface HealthNodeRow extends NodeRow {
+  health: HealthEntry | null;
+}
+
 interface HealthRes {
   onlineCount: number;
-  nodes: NodeRow[];
+  nodes: HealthNodeRow[];
+}
+
+function latencyClass(ms: number | null, online: boolean): string {
+  if (!online || ms === null) {
+    return 'border-border bg-secondary/40 text-muted-foreground';
+  }
+  if (ms < 50) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500';
+  if (ms < 150) return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500';
+  return 'border-orange-500/30 bg-orange-500/10 text-orange-500';
 }
 
 export default function AdminNodesPage(): JSX.Element {
@@ -102,6 +121,14 @@ export default function AdminNodesPage(): JSX.Element {
     queryFn: () => apiRequest<HealthRes>('/admin/nodes/health'),
     refetchInterval: 10_000,
   });
+
+  // Map nodeId → последний health-entry (latencyMs + lastProbeOk).
+  // Таблица рендерится из nodesQ (CRUD-эндпоинт, со всеми полями), latency
+  // пробрасываем сюда из health-эндпоинта.
+  const healthById = new Map<string, HealthEntry>();
+  for (const n of healthQ.data?.nodes ?? []) {
+    if (n.health) healthById.set(n.id, n.health);
+  }
 
   const closeForm = () => {
     setCreating(false);
@@ -256,6 +283,7 @@ export default function AdminNodesPage(): JSX.Element {
                 <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.name')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.host')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.status')}</th>
+                <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.latency')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.weight')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.nodes.cols.lastProbe')}</th>
                 <th className="px-4 py-3 font-medium text-right">
@@ -296,6 +324,24 @@ export default function AdminNodesPage(): JSX.Element {
                     >
                       {n.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {(() => {
+                      const h = healthById.get(n.id);
+                      const ms = h?.latencyMs ?? null;
+                      const online = n.status === 'online' && h?.lastProbeOk === true;
+                      return (
+                        <span
+                          className={cn(
+                            'rounded-full border px-2 py-0.5 font-mono text-xs',
+                            latencyClass(ms, online),
+                          )}
+                          title={t('admin.nodes.latencyHint')}
+                        >
+                          {ms !== null ? `${ms} ${t('admin.nodes.ms')}` : '—'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-2.5">{n.weight}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">

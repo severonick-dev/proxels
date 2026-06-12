@@ -4,7 +4,7 @@ import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EnvService } from '../config/env.service.js';
 import { REDIS_CLIENT } from '../redis/redis.constants.js';
-import { tcpProbe } from './probe.js';
+import { tcpProbeWithLatency } from './probe.js';
 
 const KEY_ONLINE_IDS = 'proxels:nodes:online';
 const KEY_HEALTH_PREFIX = 'proxels:nodes:health:';
@@ -16,6 +16,8 @@ export interface NodeHealthEntry {
   consecutiveFailure: number;
   lastProbeAt: string;
   lastProbeOk: boolean;
+  /** TCP-handshake latency RF→нода в мс. null если последний probe упал. */
+  latencyMs: number | null;
 }
 
 /**
@@ -52,14 +54,14 @@ export class NodesHealthService {
     const timeoutMs = this.env.get('HEALTH_CHECK_TIMEOUT_MS');
     const results = await Promise.all(
       nodes.map(async (node) => {
-        const ok = await tcpProbe(node.xrayApiAddr, timeoutMs);
-        return { node, ok };
+        const probe = await tcpProbeWithLatency(node.xrayApiAddr, timeoutMs);
+        return { node, ...probe };
       }),
     );
 
     const onlineIds: string[] = [];
-    for (const { node, ok } of results) {
-      const newStatus = await this.applyProbeResult(node, ok);
+    for (const { node, ok, latencyMs } of results) {
+      const newStatus = await this.applyProbeResult(node, ok, latencyMs);
       if (newStatus === NodeStatus.online) onlineIds.push(node.id);
     }
     await this.refreshOnlineSet(onlineIds);
@@ -83,12 +85,15 @@ export class NodesHealthService {
     const out: NodeHealthEntry[] = [];
     for (const node of nodes) {
       const raw = await this.redis.hgetall(KEY_HEALTH_PREFIX + node.id);
+      const latRaw = raw.lat;
+      const latencyMs = latRaw && latRaw !== '' ? Number(latRaw) : null;
       out.push({
         nodeId: node.id,
         consecutiveSuccess: Number(raw.succ ?? '0'),
         consecutiveFailure: Number(raw.fail ?? '0'),
         lastProbeAt: raw.lastAt ?? '',
         lastProbeOk: raw.lastOk === '1',
+        latencyMs: Number.isFinite(latencyMs) ? latencyMs : null,
       });
     }
     return out;
@@ -96,7 +101,11 @@ export class NodesHealthService {
 
   // ---------------------------------------------------------------------------
 
-  private async applyProbeResult(node: Node, ok: boolean): Promise<NodeStatus> {
+  private async applyProbeResult(
+    node: Node,
+    ok: boolean,
+    latencyMs: number | null,
+  ): Promise<NodeStatus> {
     const key = KEY_HEALTH_PREFIX + node.id;
     const upThreshold = this.env.get('HEALTH_FLAP_UP_THRESHOLD');
     const downThreshold = this.env.get('HEALTH_FLAP_DOWN_THRESHOLD');
@@ -136,6 +145,10 @@ export class NodesHealthService {
         fail: String(nextFail),
         lastAt: new Date().toISOString(),
         lastOk: ok ? '1' : '0',
+        // На fail оставляем '' — getHealthEntries трактует это как null
+        // и UI рисует прочерк. На success всегда перезаписываем актуальной
+        // цифрой, чтобы видеть «свежий» RTT, а не последний за всё время.
+        lat: latencyMs !== null ? String(latencyMs) : '',
       })
       .expire(key, 3600)
       .exec();

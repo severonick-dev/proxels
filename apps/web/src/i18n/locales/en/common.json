@@ -270,19 +270,22 @@
       "create": "Create",
       "save": "Save",
       "confirmDeactivate": "Deactivate node \"{{name}}\"? It will be marked offline and excluded from subscriptions.",
-      "confirmReissue": "Re-issue all active users on \"{{name}}\" via gRPC? UUIDs are reused from the DB, so clients don't need to refresh.",
+      "confirmReissue": "Sync node \"{{name}}\" state? Existing users get re-issued with the same UUIDs; missing ones (e.g. on a freshly added node) are materialized. Clients don't need to refresh their subscriptions.",
       "cols": {
         "name": "Name",
         "host": "Host",
         "status": "Status",
+        "latency": "Network",
         "weight": "Weight",
         "lastProbe": "Last probe",
         "actions": "Actions"
       },
+      "ms": "ms",
+      "latencyHint": "TCP-handshake time from RF backend to the node. Under 50 ms — great, 50–150 — fine, higher — far away.",
       "actions": {
         "edit": "Edit",
         "deactivate": "Deactivate",
-        "reissue": "Re-issue users (after Xray restart)"
+        "reissue": "Sync users with Xray (after Xray restart / new node added)"
       },
       "fields": {
         "name": "Node name",

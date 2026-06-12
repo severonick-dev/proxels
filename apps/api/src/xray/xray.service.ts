@@ -121,16 +121,24 @@ export class XrayService {
   }
 
   /**
-   * Перерегистрировать всех активных юзеров на конкретной ноде в её Xray.
+   * Синхронизировать состояние ноды с БД — для каждой активной подписки
+   * убедиться, что соответствующий юзер прописан в Xray на этой ноде.
    *
    * Use cases:
-   * - Xray на ноде был перезапущен (in-memory clients потеряны).
-   * - У ноды сменился IP (host обновлён через PATCH /admin/nodes/:id) — нужно
-   *   пересоздать клиентов в новом инстансе Xray.
+   * - Xray на ноде был перезапущен (in-memory clients потеряны) → переналиваем.
+   * - У ноды сменился IP / Reality keys → переналиваем с теми же UUID.
+   * - **Добавлена новая нода** → нужно подключить уже-существующие подписки
+   *   (XrayClient'а на этой ноде ещё нет — создаём с новым UUID).
    *
-   * UUID'ы из БД переиспользуем — клиентам НЕ нужно перевыпускать подписки.
-   * RemoveUser пытаемся вызывать перед AddUser (на случай если юзер ещё есть
-   * в памяти после graceful reload) — но ошибки игнорируем.
+   * Поведение:
+   * - Для подписок, у которых уже есть XrayClient на этой ноде — переналив
+   *   с тем же UUID (RemoveUser → AddUser).
+   * - Для подписок без XrayClient на этой ноде — создаём UUID, AddUser,
+   *   persist XrayClient. Клиент пользователя автоматически увидит новую
+   *   ноду при следующем pull подписки.
+   *
+   * UUID'ы существующих XrayClient'ов переиспользуем — клиентам НЕ нужно
+   * перевыпускать подписки.
    */
   async reissueOnNode(nodeId: string): Promise<{ ok: number; failed: number; total: number }> {
     const node = await this.prisma.node.findUnique({ where: { id: nodeId } });
@@ -145,63 +153,77 @@ export class XrayService {
       return { ok: 0, failed: 0, total: 0 };
     }
 
-    const clients = await this.prisma.xrayClient.findMany({
-      where: {
-        nodeId,
-        subscription: { status: 'active', endAt: { gt: new Date() } },
-      },
+    // Все активные подписки в системе. Идём по ним, а не по XrayClient'ам:
+    // так покроем и переналив существующих, и материализацию недостающих.
+    const activeSubs = await this.prisma.subscription.findMany({
+      where: { status: 'active', endAt: { gt: new Date() } },
+      select: { id: true },
     });
+    const existingByNode = await this.prisma.xrayClient.findMany({
+      where: { nodeId, subscriptionId: { in: activeSubs.map((s) => s.id) } },
+    });
+    const existingBySubId = new Map(existingByNode.map((c) => [c.subscriptionId, c]));
 
     let ok = 0;
     let failed = 0;
     const hasCdn = nodeHasCdn(node);
-    for (const client of clients) {
+
+    for (const sub of activeSubs) {
+      const existing = existingBySubId.get(sub.id);
+      const uuid = existing?.uuid ?? randomUUID();
+      const isNew = !existing;
       try {
+        // На переналиве пытаемся снести юзера на случай, если он ещё есть в
+        // памяти Xray после graceful reload. На «новом» — лишних RemoveUser
+        // тоже не делаем, но они и не упадут — Xray просто не найдёт юзера.
         try {
-          await this.nodeClient.removeUser(node, client.subscriptionId);
+          await this.nodeClient.removeUser(node, sub.id);
         } catch {
-          // Юзера в Xray и не было — это и есть наш кейс. Молча идём дальше.
+          /* юзера и не было — ок */
         }
         if (hasCdn) {
           try {
-            await this.nodeClient.removeUser(node, client.subscriptionId, node.wsInboundTag!);
+            await this.nodeClient.removeUser(node, sub.id, node.wsInboundTag!);
           } catch {
-            // То же самое для WS-инбаунда.
+            /* юзера и не было — ок */
           }
         }
-        await this.nodeClient.addUser(node, client.uuid, client.subscriptionId);
+
+        await this.nodeClient.addUser(node, uuid, sub.id);
         if (hasCdn) {
           try {
-            await this.nodeClient.addUser(
-              node,
-              client.uuid,
-              client.subscriptionId,
-              node.wsInboundTag!,
-            );
+            await this.nodeClient.addUser(node, uuid, sub.id, node.wsInboundTag!);
           } catch (err) {
-            // Reality-канал уже накатили — для WS пишем warning и считаем reissue
+            // Reality-канал уже накатили — для WS пишем warning и считаем
             // успешным. Полноценный fix — починить Xray-конфиг ноды.
             this.log.warn(
-              { nodeId, subId: client.subscriptionId, err: (err as Error).message },
+              { nodeId, subId: sub.id, err: (err as Error).message },
               'reissueOnNode: WS addUser failed (Reality reissued ok)',
             );
           }
+        }
+
+        if (isNew) {
+          // Материализация — создаём запись в БД с новым UUID.
+          await this.prisma.xrayClient.create({
+            data: { subscriptionId: sub.id, nodeId: node.id, uuid },
+          });
         }
         ok++;
       } catch (err) {
         failed++;
         this.log.error(
-          { nodeId, subId: client.subscriptionId, err: (err as Error).message },
+          { nodeId, subId: sub.id, isNew, err: (err as Error).message },
           'reissueOnNode: addUser failed',
         );
       }
     }
 
     this.log.log(
-      { nodeId, nodeName: node.name, ok, failed, total: clients.length },
+      { nodeId, nodeName: node.name, ok, failed, total: activeSubs.length },
       'reissueOnNode complete',
     );
-    return { ok, failed, total: clients.length };
+    return { ok, failed, total: activeSubs.length };
   }
 
   /**
