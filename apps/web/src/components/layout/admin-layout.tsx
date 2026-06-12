@@ -4,6 +4,7 @@ import {
   BookOpen,
   CreditCard,
   FileText,
+  FlaskConical,
   GitBranch,
   History,
   Layers,
@@ -36,6 +37,7 @@ const ITEMS: NavItem[] = [
   { to: '/admin/legal', labelKey: 'admin.nav.legal', Icon: FileText },
   { to: '/admin/audit', labelKey: 'admin.nav.audit', Icon: ScrollText },
   { to: '/admin/deploy', labelKey: 'admin.nav.deploy', Icon: GitBranch },
+  { to: '/admin/tests', labelKey: 'admin.nav.tests', Icon: FlaskConical },
 ];
 
 export function AdminLayout(): JSX.Element {

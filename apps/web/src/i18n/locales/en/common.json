@@ -219,7 +219,8 @@
       "news": "News",
       "legal": "Legal docs",
       "audit": "Audit",
-      "deploy": "Deploy"
+      "deploy": "Deploy",
+      "tests": "Tests"
     },
     "overview": {
       "title": "Overview",
@@ -403,6 +404,11 @@
         "totpInvalid": "Invalid 2FA code",
         "need2fa": "Enable 2FA in security settings first"
       }
+    },
+    "tests": {
+      "title": "Tests",
+      "subtitle": "Sandbox for upcoming smoke- and e2e-checks (skeleton).",
+      "empty": "Nothing here yet — to be filled in as we define scenarios."
     },
     "plans": {
       "title": "Plans",
