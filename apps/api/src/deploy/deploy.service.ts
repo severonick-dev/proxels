@@ -196,9 +196,18 @@ export class DeployService {
 
     const scriptPath = this.env.get('DEPLOY_SCRIPT');
     try {
-      await fs.access(scriptPath);
-    } catch {
-      throw new ForbiddenException(`Deploy script not found at ${scriptPath}`);
+      // X_OK — проверяем именно executable bit. fs.access без режима только
+      // подтверждает существование, чего недостаточно: spawn() на не-исполняемом
+      // файле эмитит EACCES асинхронно и без листенера валит весь Node-процесс.
+      await fs.access(scriptPath, fs.constants.X_OK);
+    } catch (err) {
+      const e = err as NodeJS.ErrnoException;
+      if (e.code === 'ENOENT') {
+        throw new ForbiddenException(`Deploy script not found at ${scriptPath}`);
+      }
+      throw new ForbiddenException(
+        `Deploy script at ${scriptPath} is not executable (chmod +x).`,
+      );
     }
 
     await fs.mkdir(this.logDir, { recursive: true });
@@ -238,6 +247,20 @@ export class DeployService {
       await fs.writeFile(currentLink, logFile);
     }
 
+    // КРИТИЧНО: без 'error'-листенера любой сбой spawn (EACCES, ENOENT,
+    // ENOMEM, и т.п.) превращается в uncaughtException и кладёт весь
+    // API-процесс. Логируем, помечаем run как failed, не падаем.
+    child.on('error', (err) => {
+      run.exitCode = -1;
+      run.finishedAt = new Date().toISOString();
+      run.running = false;
+      out.write(`[spawn error] ${err.message}\n`).catch(() => undefined);
+      out.close().catch(() => undefined);
+      this.log.error(
+        { err: err.message, scriptPath, ref: args.ref },
+        'deploy spawn failed',
+      );
+    });
     child.on('exit', (code) => {
       run.exitCode = code;
       run.finishedAt = new Date().toISOString();
