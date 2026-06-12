@@ -362,6 +362,7 @@
       "subtitle": "Service version and one-click update from git.",
       "refresh": "Check for updates",
       "run": "Update to this version",
+      "runMain": "Deploy main",
       "upToDate": "You are on the latest release",
       "disabledHint": "Update button is enabled only on prod with DEPLOY_ENABLED=true",
       "current": {
@@ -372,7 +373,8 @@
       },
       "remote": {
         "title": "Latest release on git",
-        "newVersion": "New version available: {{tag}}"
+        "newVersion": "New version available: {{tag}}",
+        "newMain": "New commit on main: {{sha}}"
       },
       "tags": {
         "title": "Available tags (click to deploy)"

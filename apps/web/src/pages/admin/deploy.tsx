@@ -31,6 +31,7 @@ interface RemoteStatus {
   latestTag: string | null;
   latestSha: string | null;
   tags: { tag: string; sha: string }[];
+  mainSha: string | null;
 }
 
 interface LastRunInfo {
@@ -201,10 +202,12 @@ export default function AdminDeployPage(): JSX.Element {
               </Button>
             </div>
             <div className="mt-3 font-display text-2xl font-semibold">
-              {status.remote.latestTag ?? '—'}
+              {status.remote.latestTag ?? (status.remote.mainSha ? 'main' : '—')}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {status.remote.latestSha ? status.remote.latestSha.slice(0, 7) : ''}
+            <div className="mt-1 font-mono text-xs text-muted-foreground">
+              {status.remote.latestTag
+                ? (status.remote.latestSha?.slice(0, 7) ?? '')
+                : (status.remote.mainSha?.slice(0, 7) ?? '')}
             </div>
 
             {status.hasUpdate && status.remote.latestTag && (
@@ -226,6 +229,31 @@ export default function AdminDeployPage(): JSX.Element {
                 </Button>
               </div>
             )}
+
+            {status.hasUpdate &&
+              !status.remote.latestTag &&
+              status.remote.mainSha &&
+              status.remote.mainSha !== status.current.sha && (
+                <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm">
+                  <div className="font-medium text-primary">
+                    {t('admin.deploy.remote.newMain', {
+                      sha: status.remote.mainSha.slice(0, 7),
+                    })}
+                  </div>
+                  <Button
+                    className="mt-3 w-full"
+                    variant="gradient"
+                    disabled={!status.deployEnabled}
+                    onClick={() => setConfirmRef('main')}
+                    title={
+                      status.deployEnabled ? t('admin.deploy.run') : t('admin.deploy.disabledHint')
+                    }
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {t('admin.deploy.runMain')}
+                  </Button>
+                </div>
+              )}
 
             {!status.hasUpdate && (
               <div className="mt-4 flex items-center gap-2 text-sm text-emerald-500">

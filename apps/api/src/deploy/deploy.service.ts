@@ -26,6 +26,8 @@ export interface RemoteStatus {
   latestSha: string | null;
   /** Все semver-теги на origin, отсортированные по убыванию. */
   tags: { tag: string; sha: string }[];
+  /** HEAD-SHA ветки `main` на origin. Используется для деплоя без тегов. */
+  mainSha: string | null;
 }
 
 export interface DeployStatus {
@@ -116,13 +118,18 @@ export class DeployService {
         { err: (e as Error).message },
         'Failed to query remote tags — returning empty remote',
       );
-      return { latestTag: null, latestSha: null, tags: [] } satisfies RemoteStatus;
+      return { latestTag: null, latestSha: null, tags: [], mainSha: null } satisfies RemoteStatus;
     });
 
-    const hasUpdate =
+    // hasUpdate=true либо когда на origin есть более свежий semver-тег, либо
+    // когда HEAD main на origin отличается от локального HEAD (последнее
+    // удобно для непрерывной разработки без формальных релизов).
+    const tagUpdate =
       remote.latestTag !== null &&
       current.tag !== remote.latestTag &&
       current.sha !== remote.latestSha;
+    const mainUpdate = remote.mainSha !== null && remote.mainSha !== current.sha;
+    const hasUpdate = tagUpdate || mainUpdate;
 
     return {
       current,
@@ -135,9 +142,14 @@ export class DeployService {
   }
 
   async fetchRemoteTags(): Promise<RemoteStatus> {
-    const raw = await this.git(['ls-remote', '--tags', '--refs', 'origin']);
+    // Параллельно: теги и HEAD ветки main. Если origin недоступен — оба упадут.
+    const [tagsRaw, mainRaw] = await Promise.all([
+      this.git(['ls-remote', '--tags', '--refs', 'origin']),
+      this.git(['ls-remote', '--heads', 'origin', 'main']).catch(() => ''),
+    ]);
+
     const parsed: { tag: string; sha: string }[] = [];
-    for (const line of raw.split('\n')) {
+    for (const line of tagsRaw.split('\n')) {
       const m = line.match(/^([0-9a-f]{40})\s+refs\/tags\/(\S+)$/);
       if (!m) continue;
       const sha = m[1];
@@ -147,10 +159,15 @@ export class DeployService {
       parsed.push({ tag, sha });
     }
     parsed.sort((a, b) => compareSemverTag(b.tag, a.tag));
+
+    const mainMatch = mainRaw.match(/^([0-9a-f]{40})\s+refs\/heads\/main$/m);
+    const mainSha = mainMatch?.[1] ?? null;
+
     return {
       latestTag: parsed[0]?.tag ?? null,
       latestSha: parsed[0]?.sha ?? null,
       tags: parsed,
+      mainSha,
     };
   }
 
