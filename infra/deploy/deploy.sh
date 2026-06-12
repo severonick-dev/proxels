@@ -53,7 +53,12 @@ else
 fi
 
 log "checking out $TARGET"
-git checkout --detach "$TARGET"
+# `reset --hard` вместо `checkout --detach` — переключает рабочую копию ВСЕГДА,
+# даже если в репо случайно остались локальные модификации tracked-файлов
+# (например, chmod руками, или незакоммиченный экспериментальный правки).
+# `.env` и прочее из .gitignore не трогается. Прод-каталог должен быть
+# write-only для deploy.sh — никаких ручных правок в tracked-файлах.
+git reset --hard "$TARGET"
 NEW_SHA="$(git rev-parse HEAD)"
 log "new sha: $NEW_SHA"
 
