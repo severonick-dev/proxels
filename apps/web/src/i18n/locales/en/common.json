@@ -237,9 +237,22 @@
         "role": "Role",
         "verified": "Email",
         "subs": "Subs",
+        "plan": "Plan",
+        "traffic": "Traffic",
+        "linked": "Socials",
         "payments": "Pmts",
         "created": "Created",
         "actions": "Actions"
+      },
+      "filters": {
+        "showDeleted": "Show deleted"
+      },
+      "until": "until {{date}}",
+      "linked": {
+        "tg": "Telegram linked",
+        "tgEmpty": "Telegram not linked",
+        "vk": "VK linked",
+        "vkEmpty": "VK not linked"
       },
       "actions": {
         "revokeSessions": "Revoke all sessions",

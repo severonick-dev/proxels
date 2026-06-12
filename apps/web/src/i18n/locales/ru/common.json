@@ -275,9 +275,22 @@
         "role": "Роль",
         "verified": "Email",
         "subs": "Подписки",
+        "plan": "Тариф",
+        "traffic": "Трафик",
+        "linked": "Соцсети",
         "payments": "Платежи",
         "created": "Создан",
         "actions": "Действия"
+      },
+      "filters": {
+        "showDeleted": "Показать удалённых"
+      },
+      "until": "до {{date}}",
+      "linked": {
+        "tg": "Telegram привязан",
+        "tgEmpty": "Telegram не привязан",
+        "vk": "VK привязан",
+        "vkEmpty": "VK не привязан"
       },
       "actions": {
         "revokeSessions": "Отозвать все сессии",

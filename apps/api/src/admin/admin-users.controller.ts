@@ -12,8 +12,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsOptional, IsString, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsBoolean, IsOptional, IsString, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import type { Request } from 'express';
 import { Throttle, seconds } from '@nestjs/throttler';
 import { JwtAccessGuard } from '../auth/guards/jwt-access.guard.js';
@@ -40,6 +40,16 @@ class ListQuery {
   @Type(() => Number)
   @Min(1)
   take?: number;
+
+  /**
+   * По умолчанию `true` — анонимизированные через право на забвение
+   * (email `deleted-user-*@anon.proxels.invalid`) скрываются. Передать
+   * `false` чтобы увидеть всех.
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'false' || value === false ? false : true)
+  excludeDeleted?: boolean;
 }
 
 @Controller('admin/users')
@@ -58,9 +68,17 @@ export class AdminUsersController {
   async list(@Query() query: ListQuery) {
     const take = Math.min(query.take ?? 50, 100);
     const skip = query.skip ?? 0;
-    const where = query.q
-      ? { email: { contains: query.q.toLowerCase(), mode: 'insensitive' as const } }
-      : {};
+    const excludeDeleted = query.excludeDeleted !== false;
+
+    const where: Record<string, unknown> = {};
+    if (query.q) {
+      where.email = { contains: query.q.toLowerCase(), mode: 'insensitive' as const };
+    }
+    if (excludeDeleted) {
+      where.deletedAt = null;
+    }
+
+    const now = new Date();
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
@@ -77,6 +95,26 @@ export class AdminUsersController {
           deletedAt: true,
           totpSecret: true, // только для admin — заменим на boolean ниже
           _count: { select: { subscriptions: true, payments: true } },
+          // Активная подписка (только одна — самая свежая) + её план.
+          // Нужно для колонок «Тариф» и «Трафик» в админ-таблице.
+          subscriptions: {
+            where: { status: 'active', endAt: { gt: now } },
+            orderBy: { endAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              endAt: true,
+              trafficUsedBytes: true,
+              plan: {
+                select: {
+                  id: true,
+                  name: true,
+                  priceRub: true,
+                  trafficLimitGb: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.user.count({ where }),
@@ -85,11 +123,33 @@ export class AdminUsersController {
       total,
       skip,
       take,
-      items: items.map((u) => ({
-        ...u,
-        totpSecret: undefined, // никогда не отдаём наружу
-        twofaEnabled: u.totpSecret != null,
-      })),
+      items: items.map((u) => {
+        const sub = u.subscriptions[0] ?? null;
+        return {
+          id: u.id,
+          email: u.email,
+          role: u.role,
+          emailVerified: u.emailVerified,
+          locale: u.locale,
+          createdAt: u.createdAt,
+          deletedAt: u.deletedAt,
+          twofaEnabled: u.totpSecret != null,
+          _count: u._count,
+          activePlan: sub?.plan
+            ? {
+                name: sub.plan.name,
+                priceRub: sub.plan.priceRub,
+                trafficLimitGb: sub.plan.trafficLimitGb,
+              }
+            : null,
+          trafficUsedBytes: sub?.trafficUsedBytes?.toString() ?? null,
+          subscriptionEndAt: sub?.endAt ?? null,
+          // Привязка соц-сетей пока не реализована — заглушка под будущее.
+          // Когда добавим поля User.telegramId / vkId, проставим реальные значения.
+          telegramLinked: false,
+          vkLinked: false,
+        };
+      }),
     };
   }
 

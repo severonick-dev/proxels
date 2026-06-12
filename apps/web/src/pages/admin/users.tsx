@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CheckCircle2, Loader2, ShieldOff, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, Send, ShieldOff, Trash2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { apiRequest } from '@/lib/api';
 import { cn } from '@/lib/cn';
+
+interface ActivePlan {
+  name: string;
+  priceRub: number;
+  trafficLimitGb: number | null;
+}
 
 interface UserRow {
   id: string;
@@ -17,6 +23,11 @@ interface UserRow {
   createdAt: string;
   deletedAt: string | null;
   _count: { subscriptions: number; payments: number };
+  activePlan: ActivePlan | null;
+  trafficUsedBytes: string | null;
+  subscriptionEndAt: string | null;
+  telegramLinked: boolean;
+  vkLinked: boolean;
 }
 
 interface UsersList {
@@ -31,14 +42,19 @@ export default function AdminUsersPage(): JSX.Element {
   const qc = useQueryClient();
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
   const take = 25;
 
   const usersQ = useQuery({
-    queryKey: ['admin', 'users', q, page],
-    queryFn: () =>
-      apiRequest<UsersList>(
-        `/admin/users?take=${take}&skip=${page * take}${q ? `&q=${encodeURIComponent(q)}` : ''}`,
-      ),
+    queryKey: ['admin', 'users', q, page, showDeleted],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set('take', String(take));
+      params.set('skip', String(page * take));
+      if (q) params.set('q', q);
+      if (showDeleted) params.set('excludeDeleted', 'false');
+      return apiRequest<UsersList>(`/admin/users?${params.toString()}`);
+    },
   });
 
   const revokeMutation = useMutation({
@@ -75,7 +91,7 @@ export default function AdminUsersPage(): JSX.Element {
         </p>
       </header>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Input
           placeholder={t('admin.users.searchPlaceholder')}
           value={q}
@@ -85,6 +101,18 @@ export default function AdminUsersPage(): JSX.Element {
           }}
           className="max-w-sm"
         />
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showDeleted}
+            onChange={(e) => {
+              setShowDeleted(e.target.checked);
+              setPage(0);
+            }}
+            className="h-4 w-4 accent-primary"
+          />
+          {t('admin.users.filters.showDeleted')}
+        </label>
       </div>
 
       {usersQ.isLoading ? (
@@ -100,7 +128,9 @@ export default function AdminUsersPage(): JSX.Element {
                 <th className="px-4 py-3 font-medium">{t('admin.users.cols.role')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.users.cols.verified')}</th>
                 <th className="px-4 py-3 font-medium">2FA</th>
-                <th className="px-4 py-3 font-medium">{t('admin.users.cols.subs')}</th>
+                <th className="px-4 py-3 font-medium">{t('admin.users.cols.plan')}</th>
+                <th className="px-4 py-3 font-medium">{t('admin.users.cols.traffic')}</th>
+                <th className="px-4 py-3 font-medium">{t('admin.users.cols.linked')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.users.cols.payments')}</th>
                 <th className="px-4 py-3 font-medium">{t('admin.users.cols.created')}</th>
                 <th className="px-4 py-3 font-medium text-right">
@@ -149,7 +179,58 @@ export default function AdminUsersPage(): JSX.Element {
                       <XCircle className="h-4 w-4 text-muted-foreground" />
                     )}
                   </td>
-                  <td className="px-4 py-2.5">{u._count.subscriptions}</td>
+                  <td className="px-4 py-2.5">
+                    {u.activePlan ? (
+                      <div>
+                        <div className="font-medium">{u.activePlan.name}</div>
+                        {u.subscriptionEndAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            {t('admin.users.until', {
+                              date: new Date(u.subscriptionEndAt).toLocaleDateString(locale),
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {u.activePlan ? formatTraffic(u.trafficUsedBytes, u.activePlan.trafficLimitGb) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        title={
+                          u.telegramLinked
+                            ? t('admin.users.linked.tg')
+                            : t('admin.users.linked.tgEmpty')
+                        }
+                      >
+                        <Send
+                          className={cn(
+                            'h-3.5 w-3.5',
+                            u.telegramLinked ? 'text-sky-500' : 'text-muted-foreground/30',
+                          )}
+                        />
+                      </span>
+                      <span
+                        className={cn(
+                          'inline-block h-3.5 w-3.5 rounded text-[9px] font-bold leading-[14px] text-center',
+                          u.vkLinked
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-muted-foreground/30 text-muted-foreground/30',
+                        )}
+                        title={
+                          u.vkLinked
+                            ? t('admin.users.linked.vk')
+                            : t('admin.users.linked.vkEmpty')
+                        }
+                      >
+                        VK
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5">{u._count.payments}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {new Date(u.createdAt).toLocaleDateString(locale)}
@@ -201,11 +282,13 @@ export default function AdminUsersPage(): JSX.Element {
 
       <div className="mt-4 flex items-center justify-between">
         <div className="text-xs text-muted-foreground">
-          {t('admin.users.pageInfo', {
-            from: page * take + 1,
-            to: Math.min(page * take + take, usersQ.data?.total ?? 0),
-            total: usersQ.data?.total ?? 0,
-          })}
+          {usersQ.data && usersQ.data.total > 0
+            ? t('admin.users.pageInfo', {
+                from: page * take + 1,
+                to: Math.min(page * take + take, usersQ.data.total),
+                total: usersQ.data.total,
+              })
+            : ''}
         </div>
         <div className="flex gap-2">
           <Button
@@ -228,4 +311,16 @@ export default function AdminUsersPage(): JSX.Element {
       </div>
     </>
   );
+}
+
+/**
+ * Форматирует «использовано / лимит» в GB. На безлимитном плане
+ * (trafficLimitGb=null) показывает только «использовано».
+ */
+function formatTraffic(usedBytesStr: string | null, limitGb: number | null): string {
+  const usedBytes = usedBytesStr ? Number(usedBytesStr) : 0;
+  const usedGb = usedBytes / 1024 ** 3;
+  const usedFmt = usedGb < 0.1 ? usedGb.toFixed(2) : usedGb.toFixed(1);
+  if (limitGb === null) return `${usedFmt} GB / ∞`;
+  return `${usedFmt} / ${limitGb} GB`;
 }
