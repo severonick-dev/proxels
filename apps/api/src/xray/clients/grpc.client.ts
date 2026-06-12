@@ -2,13 +2,39 @@ import { Logger } from '@nestjs/common';
 import { loadPackageDefinition, credentials, type Client } from '@grpc/grpc-js';
 import { loadSync, type PackageDefinition } from '@grpc/proto-loader';
 import * as protobuf from 'protobufjs';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Node } from '@prisma/client';
 import type { XrayNodeClient } from '../xray.types.js';
 
-// Корень с .proto-файлами относительно скомпилированного JS (dist/xray/clients).
-// proto-loader умеет резолвить `import "common/..."` по includeDirs.
-const PROTO_INCLUDE = path.resolve(__dirname, '..', 'protos');
+/**
+ * Корень с .proto-файлами. После `nest build` копируются в `dist/xray/protos`
+ * (см. package.json scripts.copy:protos). В dev-режиме файлы лежат рядом с
+ * исходниками — `apps/api/src/xray/protos/`. Делаем robust lookup:
+ *   1. `dist/xray/protos` рядом с __dirname (после билда).
+ *   2. fallback: `src/xray/protos` относительно корня apps/api/ — если build
+ *      случайно не скопировал assets, или мы запускаемся через tsx.
+ * Бросаем явную ошибку, если не нашли — лучше, чем тихие warning'и.
+ */
+function resolveProtoDir(): string {
+  const candidates = [
+    path.resolve(__dirname, '..', 'protos'), // dist/xray/protos
+    path.resolve(__dirname, '..', '..', '..', 'src', 'xray', 'protos'), // apps/api/src/xray/protos
+    path.resolve(process.cwd(), 'src', 'xray', 'protos'),
+    path.resolve(process.cwd(), 'apps', 'api', 'src', 'xray', 'protos'),
+  ];
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'app', 'proxyman', 'command', 'command.proto'))) {
+      return dir;
+    }
+  }
+  throw new Error(
+    `Xray .proto files not found. Searched: ${candidates.join(', ')}. ` +
+      `Run 'pnpm --filter @proxels/api copy:protos' or rebuild via 'pnpm --filter @proxels/api build'.`,
+  );
+}
+
+const PROTO_INCLUDE = resolveProtoDir();
 
 const PROTO_FILES = [
   'app/proxyman/command/command.proto',

@@ -5,7 +5,8 @@
   "description": "Backend (NestJS) — auth, billing, subscriptions, Xray node orchestration.",
   "main": "dist/main.js",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build && pnpm run copy:protos",
+    "copy:protos": "node -e \"require('fs').cpSync('src/xray/protos','dist/xray/protos',{recursive:true})\"",
     "dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

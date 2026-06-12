@@ -66,6 +66,12 @@ fi
 log "pnpm install --frozen-lockfile"
 pnpm install --frozen-lockfile
 
+log "prisma generate"
+# Перегенерируем client после install — postinstall-хук иногда не отрабатывает
+# и оставляет @prisma/client без runtime-объектов (enums = undefined). Явно
+# вызываем — это дёшево и страхует от падения сервиса на старте.
+pnpm --filter @proxels/api exec prisma generate
+
 log "prisma migrate deploy"
 pnpm --filter @proxels/api prisma:deploy
 
